@@ -1,0 +1,14 @@
+[programs.localnet]
+climax_controller = "8Jj7CZ7gu87Jd3VKBqZg4ahD6diyK2V7a4LHVBgyAjru"
+
+[registry]
+url = "https://anchor.projectserum.com"
+
+[provider]
+#cluster = "testnet"
+#cluster = "devnet"
+cluster = "localnet"
+wallet = "/home/myware/.config/solana/mainnet.json"
+
+[scripts]
+test = "yarn run ts-mocha -t 1000000 tests/*.ts"
