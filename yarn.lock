@@ -77,10 +77,10 @@
     "@solana/spl-token" "^0.1.8"
     "@solana/web3.js" "^1.31.0"
 
-"@metaplex/js@^4.9.0":
-  version "4.11.2"
-  resolved "https://registry.yarnpkg.com/@metaplex/js/-/js-4.11.2.tgz#83b18fce662ba4b267e3208963bc73426d7208e5"
-  integrity sha512-BJvbYGz0l8e2iZSSFMeOr4n7cNvPMYhkrl/vuXeqZR0EoyhfCQgobE2QHUyEKPMwe6VxWu9VQ7Ra1oBlhC2xTg==
+"@metaplex/js@^4.11.3":
+  version "4.11.3"
+  resolved "https://registry.yarnpkg.com/@metaplex/js/-/js-4.11.3.tgz#626c954c12e1fa806910dd498ab0603d135ac98e"
+  integrity sha512-zFtrGc5CS2/EWJorAnbcA/plqy8YBoIq+g4X6e4j3X8PALS7c49oyhndwRDbqnTcvfEagVAKjqIIdsMRg3xd0g==
   dependencies:
     "@metaplex-foundation/mpl-auction" "^0.0.2"
     "@metaplex-foundation/mpl-core" "^0.0.2"
