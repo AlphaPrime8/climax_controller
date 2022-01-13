@@ -142,7 +142,7 @@ async function test_load_metadata() {
 //
 // }
 
-test_load_metadata()
+test_load_candy_machine()
     .then(value => {
         console.log("success with value: {}", value);
     })

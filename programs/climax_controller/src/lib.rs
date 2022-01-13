@@ -1,25 +1,30 @@
 use std::io::Write;
 use std::ops::Deref;
 use std::str::FromStr;
+use anchor_lang::solana_program::hash::hash;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 use spl_token_metadata;
 use solana_program::borsh::try_from_slice_unchecked;
-use nft_candy_machine::CandyMachine;
+use nft_candy_machine::{CandyMachine, CandyMachineData};
 // use mpl_token_metadata::state::Metadata;
 
-declare_id!("8Jj7CZ7gu87Jd3VKBqZg4ahD6diyK2V7a4LHVBgyAjru");
+declare_id!("3pqVVuz8ghE5LT4Z26xjPi17qqXLartUra8yMkABCeEG");
 
 // config
 const TOKEN_ACCOUNT_PDA_SEED: &[u8] = b"token_account_pda_seed";
 const NFT_PDA_SEED: &[u8] = b"nft_registration_pda_seed";
 const USER_PDA_SEED: &[u8] = b"user_pda_seed";
 const AUTH_PDA_SEED: &[u8] = b"auth_pda_seed";
+const METADATA_PREFIX: &[u8] = b"metadata";
 const MAX_OWNERS: usize = 10;
 
 #[program]
 pub mod climax_controller {
     use std::convert::TryFrom;
+    use solana_program::program::{invoke, invoke_signed};
+    use solana_program::system_instruction;
+    use solana_program::system_instruction::create_account;
     use spl_token::solana_program::clock::UnixTimestamp;
     use super::*;
 
@@ -27,8 +32,23 @@ pub mod climax_controller {
         ctx: Context<TestLoadCandyMachine>
     ) -> ProgramResult {
 
-        let items_redeemed = ctx.accounts.candy_machine.items_redeemed;
+        // TODO use the Account with generic signature to check owner and init, or do so manually (same for metadata)
+        // manually deserialize
+        let info: &AccountInfo = &ctx.accounts.candy_machine;
+        let mut data: &[u8] = &info.try_borrow_data()?;
+        let cm: CandyMachine = CandyMachine::try_deserialize(&mut data)?;
+        let items_redeemed = cm.items_redeemed;
+
+        if items_redeemed != 666 {
+            panic!("data is incorrect");
+        }
+
         msg!("items redeeemed: {}", items_redeemed);
+
+        // print the first eight bytes of data
+        for i in 0..8 {
+            msg!("got byte {}: {}", i, data[i]);
+        }
 
         Ok(())
     }
@@ -37,30 +57,71 @@ pub mod climax_controller {
         ctx: Context<TestLoadMetadata>
     ) -> ProgramResult {
 
-        let uri = &ctx.accounts.metadata.data.uri;
+        // manually deserialize
+        let info: &AccountInfo = &ctx.accounts.metadata;
+        let mut data: &[u8] = &info.try_borrow_data()?;
+        let md: MetaplexMetadata = MetaplexMetadata::try_deserialize(&mut data)?;
+        let uri = &md.data.uri;
         msg!("got uri: {}", *uri);
 
         Ok(())
     }
 
-    // pub fn simulate_create_candy_machine(
-    //     ctx: Context<SimulateCreateCandyMachine>
-    // ) -> ProgramResult {
-    //
-    //     // TODO create a program account with CandyMachine data but belonging to this current program
-    //
-    //     Ok(())
-    // }
-    //
+    pub fn simulate_create_candy_machine(
+        ctx: Context<SimulateCreateCandyMachine>
+    ) -> ProgramResult {
+
+        // init candy machine struct
+        let data = CandyMachineData::default();
+        let mut candy_machine = CandyMachine {
+            data,
+            authority: Pubkey::default(),
+            wallet: Pubkey::default(),
+            token_mint: None,
+            items_redeemed: 666,
+        };
+        let mut new_data: Vec<u8> = vec![51, 173, 177, 113, 25, 241, 109, 189]; // manually got discriminator
+        new_data.append(&mut candy_machine.try_to_vec().unwrap());
+
+
+        let space = new_data.len();
+        msg!("allocating space to new account: {}", space);
+
+        // create account
+        invoke(
+            &create_account(
+                ctx.accounts.signer.key,
+                ctx.accounts.candy_machine.key,
+                1.max(Rent::get()?.minimum_balance(space)),
+                space as u64,
+                &ID,
+            ),
+            &[
+                ctx.accounts.signer.to_account_info().clone(),
+                ctx.accounts.candy_machine.to_account_info().clone(),
+                ctx.accounts.system_program.to_account_info().clone(),
+            ],
+        );
+
+        // get account ref to fill in
+        let candy_machine_account = &mut ctx.accounts.candy_machine;
+        let mut data = candy_machine_account.data.borrow_mut();
+        for i in 0..new_data.len() {
+            data[i] = new_data[i];
+        }
+
+        Ok(())
+    }
+
     // pub fn simulate_mint_nft(
     //     ctx: Context<SimulateMintNft>
     // ) -> ProgramResult {
     //
-    //     // TODO Create Metadata PDAs for a given nft but with current program ID
+    //     // ctx.accounts.metadata.is_mutable = true;
     //
     //     Ok(())
     // }
-    //
+
     // pub fn initialize_climax_controller(
     //     ctx: Context<InitializeClimaxController>,
     //     owners: Vec<Pubkey>,
@@ -306,76 +367,46 @@ pub mod climax_controller {
 pub struct TestLoadCandyMachine<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
-    pub candy_machine: Account<'info, CandyMachine>,
+    pub candy_machine: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]
 pub struct TestLoadMetadata<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
-    pub metadata: Account<'info, MetaplexMetadata>,
+    pub metadata: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
 }
 
-// #[derive(Accounts)]
-// pub struct SimulateCreateCandyMachine<'info> {
-//     #[account(mut)]
-//     pub signer: Signer<'info>,
-//     #[account(
-//         init,
-//         payer = signer)]
-//     pub climax_controller: ProgramAccount<'info, ClimaxController>,
-//     #[account(
-//         init,
-//         seeds = [climax_controller.key().as_ref(), AUTH_PDA_SEED],
-//         bump,
-//         payer = signer)]
-//     pub auth_pda: Account<'info, AuthAccount>,
-//     #[account(
-//         init,
-//         token::mint = wsol_mint,
-//         token::authority = auth_pda,
-//         seeds = [climax_controller.key().as_ref(), TOKEN_ACCOUNT_PDA_SEED],
-//         bump,
-//         payer = signer)]
-//     pub pool_wrapped_sol: Box<Account<'info, TokenAccount>>,
-//     pub wsol_mint: Box<Account<'info, Mint>>,
-//     pub system_program: Program<'info, System>,
-//     pub token_program: Program<'info, Token>,
-//     pub rent: Sysvar<'info, Rent>,
-// }
-//
+#[derive(Accounts)]
+pub struct SimulateCreateCandyMachine<'info> {
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    #[account(mut)]
+    pub candy_machine: Signer<'info>,
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
 // #[derive(Accounts)]
 // pub struct SimulateMintNft<'info> {
 //     #[account(mut)]
 //     pub signer: Signer<'info>,
 //     #[account(
-//     init,
-//     payer = signer)]
-//     pub climax_controller: ProgramAccount<'info, ClimaxController>,
-//     #[account(
-//     init,
-//     seeds = [climax_controller.key().as_ref(), AUTH_PDA_SEED],
-//     bump,
-//     payer = signer)]
-//     pub auth_pda: Account<'info, AuthAccount>,
-//     #[account(
-//     init,
-//     token::mint = wsol_mint,
-//     token::authority = auth_pda,
-//     seeds = [climax_controller.key().as_ref(), TOKEN_ACCOUNT_PDA_SEED],
-//     bump,
-//     payer = signer)]
-//     pub pool_wrapped_sol: Box<Account<'info, TokenAccount>>,
-//     pub wsol_mint: Box<Account<'info, Mint>>,
+//         init,
+//         seeds = [METADATA_PREFIX, program_id.as_ref(), nft_mint.key().as_ref()],
+//         bump,
+//         payer = signer)]
+//     pub metadata: AccountInfo<'info>,
+//     #[account(mut)]
+//     pub nft_mint: Account<'info, Mint>,
 //     pub system_program: Program<'info, System>,
 //     pub token_program: Program<'info, Token>,
 //     pub rent: Sysvar<'info, Rent>,
 // }
-//
+
 // #[derive(Accounts)]
 // pub struct InitializeClimaxController<'info> {
 //     #[account(mut)]
@@ -562,7 +593,8 @@ pub struct TestLoadMetadata<'info> {
 //     pub amount_paid: u64,
 //     pub amount_withdrawn: u64,
 // }
-//
+
+
 // TODO move this into utils
 // TODO change to metadat v2?
 // Implement custom version of metaplex metadata with traits required by anchor
@@ -604,19 +636,6 @@ impl Deref for MetaplexMetadata {
         &self.0
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #[error]
 pub enum ErrorCode {
