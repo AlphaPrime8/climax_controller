@@ -57,12 +57,17 @@ pub mod climax_controller {
         ctx: Context<TestLoadMetadata>
     ) -> ProgramResult {
 
+        // TODO add owner check and pda address check
         // manually deserialize
         let info: &AccountInfo = &ctx.accounts.metadata;
         let mut data: &[u8] = &info.try_borrow_data()?;
         let md: MetaplexMetadata = MetaplexMetadata::try_deserialize(&mut data)?;
         let uri = &md.data.uri;
         msg!("got uri: {}", *uri);
+
+        if md.data.seller_fee_basis_points != 666 {
+            panic!("bad metadata");
+        }
 
         Ok(())
     }
@@ -109,6 +114,126 @@ pub mod climax_controller {
         for i in 0..new_data.len() {
             data[i] = new_data[i];
         }
+
+        Ok(())
+    }
+
+    // pub fn simulate_create_metadata(
+    //     ctx: Context<SimulateCreateMetadata>,
+    // ) -> ProgramResult {
+    //
+    //     // let metadata_info = ctx.accounts.metadata.to_account_info();
+    //     // let mint_info = ctx.accounts.nft_mint.to_account_info();
+    //     // let signer_info = ctx.accounts.signer.to_account_info();
+    //     // let system_info = ctx.accounts.system_program.to_account_info();
+    //     // let rent_info = ctx.accounts.rent.to_account_info();
+    //
+    //     let args = spl_token_metadata::utils::CreateMetadataAccountsLogicArgs {
+    //         metadata_account_info: ctx.accounts.metadata.as_ref(),
+    //         mint_info: ctx.accounts.nft_mint.as_ref(),
+    //         mint_authority_info: ctx.accounts.signer.as_ref(),
+    //         payer_account_info: ctx.accounts.signer.as_ref(),
+    //         update_authority_info: ctx.accounts.signer.as_ref(),
+    //         system_account_info: ctx.accounts.system_program.as_ref(),
+    //         rent_info: ctx.accounts.rent.as_ref(),
+    //     };
+    //     // let data = spl_token_metadata::state::Data {
+    //     //     name: "".to_string(),
+    //     //     symbol: "".to_string(),
+    //     //     uri: "".to_string(),
+    //     //     seller_fee_basis_points: 666,
+    //     //     creators: None
+    //     // };
+    //     // spl_token_metadata::utils::process_create_metadata_accounts_logic(
+    //     //     &ID,
+    //     //     args,
+    //     //     data,
+    //     //     true,
+    //     //     true,
+    //     // );
+    //
+    //     Ok(())
+    // }
+
+    pub fn simulate_create_metadata(
+        ctx: Context<SimulateCreateMetadata>,
+    ) -> ProgramResult {
+
+        // // init data
+        // let md = spl_token_metadata::state::Metadata {
+        //     key: spl_token_metadata::state::Key::MetadataV1,
+        //     update_authority: Pubkey::default(),
+        //     mint: Pubkey::default(),
+        //     primary_sale_happened: false,
+        //     is_mutable: false,
+        //     edition_nonce: None,
+        //     data: spl_token_metadata::state::Data {
+        //         name: "".to_string(),
+        //         symbol: "".to_string(),
+        //         uri: "wutup gangsta mein".to_string(),
+        //         seller_fee_basis_points: 666,
+        //         creators: None
+        //     }
+        // };
+        //
+        // let mut new_data: Vec<u8> = vec![0, 0, 0, 0, 0, 0, 0, 0]; // manually got discriminator
+        // new_data.append(&mut md.try_to_vec().unwrap());
+        // // let mut new_data: Vec<u8> = md.try_to_vec().unwrap();
+        // let space = new_data.len();
+
+        let space = spl_token_metadata::state::MAX_METADATA_LEN;
+
+        // lookup and verify pda info
+        let nft_mint = &ctx.accounts.nft_mint.key();
+        let metadata_program_id: Pubkey = ID;
+        let metadata_seeds = &[METADATA_PREFIX, metadata_program_id.as_ref(),nft_mint.as_ref()];
+        let (pda, bump_seed) = Pubkey::find_program_address(metadata_seeds, &metadata_program_id);
+        if pda != ctx.accounts.metadata.key() {
+            panic!("wrong pda addy");
+        }
+        let metadata_seeds = &[METADATA_PREFIX, metadata_program_id.as_ref(),nft_mint.as_ref(), &[bump_seed]];
+        let signer = &[&metadata_seeds[..]];
+
+        // create pda
+        invoke_signed(
+            &create_account(
+                ctx.accounts.signer.key,
+                &pda,
+                1.max(Rent::get()?.minimum_balance(space)),
+                space as u64,
+                &ID
+            ),
+            &[
+                ctx.accounts.signer.to_account_info().clone(),
+                ctx.accounts.metadata.to_account_info().clone(),
+                ctx.accounts.system_program.to_account_info().clone(),
+            ],
+            signer
+        )?;
+
+        // // get account ref to fill in
+        // let metadata = &mut ctx.accounts.metadata;
+        // let mut data = metadata.data.borrow_mut();
+        // for i in 0..new_data.len() {
+        //     data[i] = new_data[i];
+        // }
+
+        let mut metadata = spl_token_metadata::state::Metadata::from_account_info(&ctx.accounts.metadata)?;
+        let data = spl_token_metadata::state::Data {
+            name: "".to_string(),
+            symbol: "".to_string(),
+            uri: "wutup gangsta mein".to_string(),
+            seller_fee_basis_points: 666,
+            creators: None
+        };
+        metadata.mint = ctx.accounts.nft_mint.key();
+        metadata.key = spl_token_metadata::state::Key::MetadataV1;
+        metadata.data = data;
+        metadata.is_mutable = true;
+        metadata.update_authority = ctx.accounts.signer.key();
+
+        spl_token_metadata::utils::puff_out_data_fields(&mut metadata);
+        metadata.serialize(&mut *ctx.accounts.metadata.try_borrow_mut_data().unwrap())?;
 
         Ok(())
     }
@@ -377,7 +502,6 @@ pub struct TestLoadMetadata<'info> {
     pub signer: Signer<'info>,
     pub metadata: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
 }
 
 #[derive(Accounts)]
@@ -386,6 +510,18 @@ pub struct SimulateCreateCandyMachine<'info> {
     pub signer: Signer<'info>,
     #[account(mut)]
     pub candy_machine: Signer<'info>,
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+pub struct SimulateCreateMetadata<'info> {
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    #[account(mut)]
+    pub metadata: AccountInfo<'info>,
+    #[account(mut)]
+    pub nft_mint: Account<'info, Mint>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 }

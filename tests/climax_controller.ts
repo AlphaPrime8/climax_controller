@@ -23,6 +23,7 @@ describe("climax_controller", () => {
     let wrappedSolAta: PublicKey = null;
     let authPda: PublicKey = null;
     let poolWrappedSol: PublicKey = null; // lookup as pda or ata?
+    let metadata_pda: PublicKey = null;
     const owner1 = Keypair.generate();
     const candy_machine = Keypair.generate();
 
@@ -36,6 +37,7 @@ describe("climax_controller", () => {
             await provider.connection.requestAirdrop(owner1.publicKey, to_lamports(10)),
             "confirmed"
         );
+
 
         // // wrap sol
         // wrappedSolAta = await Token.createWrappedNativeAccount(provider.connection, TOKEN_PROGRAM_ID, owner1.publicKey, owner1, to_lamports(9));
@@ -78,6 +80,64 @@ describe("climax_controller", () => {
                 accounts: {
                     signer: owner1.publicKey,
                     candyMachine: candy_machine.publicKey,
+                    systemProgram: SystemProgram.programId,
+                },
+                signers: [owner1],
+            }
+        );
+
+    });
+
+    it("Test create simulated metadata", async () => {
+
+        // create mint and nft
+        let mintA = await Token.createMint(
+            provider.connection,
+            owner1,
+            owner1.publicKey,
+            null,
+            0,
+            TOKEN_PROGRAM_ID
+        );
+        let initializerTokenAccountA = await mintA.createAccount(
+            owner1.publicKey
+        );
+        await mintA.mintTo(
+            initializerTokenAccountA,
+            owner1.publicKey,
+            [owner1],
+            1
+        );
+
+        const METADATA_PREFIX = "metadata";
+        [metadata_pda] = await PublicKey.findProgramAddress(
+            [Buffer.from(METADATA_PREFIX), program.programId.toBuffer(), mintA.publicKey.toBuffer()],
+            program.programId
+        );
+
+
+        await program.rpc.simulateCreateMetadata(
+            {
+                accounts: {
+                    signer: owner1.publicKey,
+                    metadata: metadata_pda,
+                    nftMint: mintA.publicKey,
+                    systemProgram: SystemProgram.programId,
+                    rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+                },
+                signers: [owner1],
+            }
+        );
+
+    });
+
+    it("Test load metadata", async () => {
+
+        await program.rpc.testLoadMetadata(
+            {
+                accounts: {
+                    signer: owner1.publicKey,
+                    metadata: metadata_pda,
                     systemProgram: SystemProgram.programId,
                 },
                 signers: [owner1],
