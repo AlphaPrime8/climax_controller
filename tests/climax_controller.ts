@@ -3,6 +3,7 @@ import { Program } from "@project-serum/anchor";
 import { PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, Token, NATIVE_MINT } from "@solana/spl-token";
 import { ClimaxController } from '../target/types/climax_controller';
+import {WRAPPED_SOL_MINT} from "@project-serum/serum/lib/token-instructions";
 
 const TEST_COUNTER_EXAMPLE = false;
 const AUTH_PDA_SEED = "auth_pda_seeds";
@@ -25,6 +26,8 @@ describe("climax_controller", () => {
     let poolWrappedSol: PublicKey = null; // lookup as pda or ata?
     let metadata_pda: PublicKey = null;
     const owner1 = Keypair.generate();
+    const owner2 = Keypair.generate();
+    const owner3 = Keypair.generate();
     const candy_machine = Keypair.generate();
 
     console.log("owner1 pk: ", owner1.publicKey.toString());
@@ -115,7 +118,6 @@ describe("climax_controller", () => {
             program.programId
         );
 
-
         await program.rpc.simulateCreateMetadata(
             {
                 accounts: {
@@ -141,6 +143,51 @@ describe("climax_controller", () => {
                     systemProgram: SystemProgram.programId,
                 },
                 signers: [owner1],
+            }
+        );
+
+    });
+
+    it("Test Initialize climax controller", async () => {
+
+        let owners = [owner1.publicKey, owner2.publicKey, owner3.publicKey]; // TODO test all 10 owners
+        let signer_threshold = 2;
+        let test_candy_machine = Keypair.generate();
+        let tipping_point_threshold = to_lamports(1);
+        let end_timestamp = Math.floor(Date.now() / 1000) + (60 * 60 * 24); // unix timestamp seconds
+
+        let climax_controller = Keypair.generate();
+        const AUTH_PDA_SEED = "auth_pda_seed";
+        const [auth_pda] = await PublicKey.findProgramAddress(
+            [climax_controller.publicKey.toBuffer(), Buffer.from(AUTH_PDA_SEED)],
+            program.programId
+        );
+        const TOKEN_ACCOUNT_PDA_SEED = "token_account_pda_seed";
+        const [pool_wrapped_sol] = await PublicKey.findProgramAddress(
+            [climax_controller.publicKey.toBuffer(), Buffer.from(TOKEN_ACCOUNT_PDA_SEED)],
+            program.programId
+        );
+
+        console.log("initializing climax controller with pk: ", climax_controller.publicKey.toString());
+
+        await program.rpc.initializeClimaxController(
+            owners,
+            new anchor.BN(signer_threshold),
+            test_candy_machine.publicKey,
+            new anchor.BN(tipping_point_threshold),
+            new anchor.BN(end_timestamp),
+            {
+                accounts: {
+                    signer: owner1.publicKey,
+                    climaxController: climax_controller.publicKey,
+                    authPda: auth_pda,
+                    poolWrappedSol: pool_wrapped_sol,
+                    wsolMint: WRAPPED_SOL_MINT,
+                    systemProgram: SystemProgram.programId,
+                    tokenProgram: TOKEN_PROGRAM_ID,
+                    rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+                },
+                signers: [owner1, climax_controller],
             }
         );
 

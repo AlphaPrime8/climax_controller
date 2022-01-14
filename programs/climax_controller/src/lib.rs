@@ -61,7 +61,13 @@ pub mod climax_controller {
         // manually deserialize
         let info: &AccountInfo = &ctx.accounts.metadata;
         let mut data: &[u8] = &info.try_borrow_data()?;
-        let md: MetaplexMetadata = MetaplexMetadata::try_deserialize(&mut data)?;
+
+        let md: spl_token_metadata::state::Metadata = spl_token_metadata::utils::try_from_slice_checked(
+            data,
+            spl_token_metadata::state::Key::MetadataV1,
+            spl_token_metadata::state::MAX_METADATA_LEN)?;
+
+
         let uri = &md.data.uri;
         msg!("got uri: {}", *uri);
 
@@ -85,12 +91,11 @@ pub mod climax_controller {
             token_mint: None,
             items_redeemed: 666,
         };
-        let mut new_data: Vec<u8> = vec![51, 173, 177, 113, 25, 241, 109, 189]; // manually got discriminator
+        let mut new_data: Vec<u8> = vec![51, 173, 177, 113, 25, 241, 109, 189]; // manually got discriminator, can also just hash("account:CandyMachine")[..8]
         new_data.append(&mut candy_machine.try_to_vec().unwrap());
 
 
         let space = new_data.len();
-        msg!("allocating space to new account: {}", space);
 
         // create account
         invoke(
@@ -118,68 +123,9 @@ pub mod climax_controller {
         Ok(())
     }
 
-    // pub fn simulate_create_metadata(
-    //     ctx: Context<SimulateCreateMetadata>,
-    // ) -> ProgramResult {
-    //
-    //     // let metadata_info = ctx.accounts.metadata.to_account_info();
-    //     // let mint_info = ctx.accounts.nft_mint.to_account_info();
-    //     // let signer_info = ctx.accounts.signer.to_account_info();
-    //     // let system_info = ctx.accounts.system_program.to_account_info();
-    //     // let rent_info = ctx.accounts.rent.to_account_info();
-    //
-    //     let args = spl_token_metadata::utils::CreateMetadataAccountsLogicArgs {
-    //         metadata_account_info: ctx.accounts.metadata.as_ref(),
-    //         mint_info: ctx.accounts.nft_mint.as_ref(),
-    //         mint_authority_info: ctx.accounts.signer.as_ref(),
-    //         payer_account_info: ctx.accounts.signer.as_ref(),
-    //         update_authority_info: ctx.accounts.signer.as_ref(),
-    //         system_account_info: ctx.accounts.system_program.as_ref(),
-    //         rent_info: ctx.accounts.rent.as_ref(),
-    //     };
-    //     // let data = spl_token_metadata::state::Data {
-    //     //     name: "".to_string(),
-    //     //     symbol: "".to_string(),
-    //     //     uri: "".to_string(),
-    //     //     seller_fee_basis_points: 666,
-    //     //     creators: None
-    //     // };
-    //     // spl_token_metadata::utils::process_create_metadata_accounts_logic(
-    //     //     &ID,
-    //     //     args,
-    //     //     data,
-    //     //     true,
-    //     //     true,
-    //     // );
-    //
-    //     Ok(())
-    // }
-
     pub fn simulate_create_metadata(
         ctx: Context<SimulateCreateMetadata>,
     ) -> ProgramResult {
-
-        // // init data
-        // let md = spl_token_metadata::state::Metadata {
-        //     key: spl_token_metadata::state::Key::MetadataV1,
-        //     update_authority: Pubkey::default(),
-        //     mint: Pubkey::default(),
-        //     primary_sale_happened: false,
-        //     is_mutable: false,
-        //     edition_nonce: None,
-        //     data: spl_token_metadata::state::Data {
-        //         name: "".to_string(),
-        //         symbol: "".to_string(),
-        //         uri: "wutup gangsta mein".to_string(),
-        //         seller_fee_basis_points: 666,
-        //         creators: None
-        //     }
-        // };
-        //
-        // let mut new_data: Vec<u8> = vec![0, 0, 0, 0, 0, 0, 0, 0]; // manually got discriminator
-        // new_data.append(&mut md.try_to_vec().unwrap());
-        // // let mut new_data: Vec<u8> = md.try_to_vec().unwrap();
-        // let space = new_data.len();
 
         let space = spl_token_metadata::state::MAX_METADATA_LEN;
 
@@ -211,13 +157,6 @@ pub mod climax_controller {
             signer
         )?;
 
-        // // get account ref to fill in
-        // let metadata = &mut ctx.accounts.metadata;
-        // let mut data = metadata.data.borrow_mut();
-        // for i in 0..new_data.len() {
-        //     data[i] = new_data[i];
-        // }
-
         let mut metadata = spl_token_metadata::state::Metadata::from_account_info(&ctx.accounts.metadata)?;
         let data = spl_token_metadata::state::Data {
             name: "".to_string(),
@@ -238,47 +177,36 @@ pub mod climax_controller {
         Ok(())
     }
 
-    // pub fn simulate_mint_nft(
-    //     ctx: Context<SimulateMintNft>
-    // ) -> ProgramResult {
-    //
-    //     // ctx.accounts.metadata.is_mutable = true;
-    //
-    //     Ok(())
-    // }
+    pub fn initialize_climax_controller(
+        ctx: Context<InitializeClimaxController>,
+        owners: Vec<Pubkey>,
+        signer_threshold: u64,
+        candy_machine_id: Pubkey,
+        tipping_point_threshold: u64,
+        end_timestamp: u64,
+    ) -> ProgramResult {
+        if owners.len() > MAX_OWNERS {
+            return Err(ErrorCode::TooManyOwners.into());
+        }
+        let climax_controller = &mut ctx.accounts.climax_controller;
 
-    // pub fn initialize_climax_controller(
-    //     ctx: Context<InitializeClimaxController>,
-    //     owners: Vec<Pubkey>,
-    //     signer_threshold: u64,
-    //     candy_machine_id: Pubkey,
-    //     tipping_point_threshold: u64,
-    //     end_timestamp: u64,
-    //     mint_price: u64
-    // ) -> ProgramResult {
-    //     if owners.len() > MAX_OWNERS {
-    //         return Err(ErrorCode::TooManyOwners.into());
-    //     }
-    //     let climax_controller = &mut ctx.accounts.climax_controller;
-    //
-    //     // init multisig params
-    //     climax_controller.owners = owners;
-    //     climax_controller.signer_threshold = signer_threshold;
-    //     let mut signers = Vec::new();
-    //     signers.resize(climax_controller.owners.len(), false);
-    //     climax_controller.signers = signers;
-    //
-    //     // init withdraw params
-    //     climax_controller.proposal_is_active = false;
-    //
-    //     // init tipping point params
-    //     climax_controller.candy_machine_id = candy_machine_id;
-    //     climax_controller.tipping_point_threshold = tipping_point_threshold;
-    //     climax_controller.end_timestamp = end_timestamp;
-    //     climax_controller.mint_price = mint_price;
-    //
-    //     Ok(())
-    // }
+        // init multisig params
+        climax_controller.owners = owners;
+        climax_controller.signer_threshold = signer_threshold;
+        let mut signers = Vec::new();
+        signers.resize(climax_controller.owners.len(), false);
+        climax_controller.signers = signers;
+
+        // init withdraw params
+        climax_controller.proposal_is_active = false;
+
+        // init tipping point params
+        climax_controller.candy_machine_id = candy_machine_id;
+        climax_controller.tipping_point_threshold = tipping_point_threshold;
+        climax_controller.end_timestamp = end_timestamp;
+
+        Ok(())
+    }
     //
     // pub fn init_user_metadata_pda(
     //     ctx: Context<InitUserMetadataPda>,
@@ -526,51 +454,37 @@ pub struct SimulateCreateMetadata<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-// #[derive(Accounts)]
-// pub struct SimulateMintNft<'info> {
-//     #[account(mut)]
-//     pub signer: Signer<'info>,
-//     #[account(
-//         init,
-//         seeds = [METADATA_PREFIX, program_id.as_ref(), nft_mint.key().as_ref()],
-//         bump,
-//         payer = signer)]
-//     pub metadata: AccountInfo<'info>,
-//     #[account(mut)]
-//     pub nft_mint: Account<'info, Mint>,
-//     pub system_program: Program<'info, System>,
-//     pub token_program: Program<'info, Token>,
-//     pub rent: Sysvar<'info, Rent>,
-// }
 
-// #[derive(Accounts)]
-// pub struct InitializeClimaxController<'info> {
-//     #[account(mut)]
-//     pub signer: Signer<'info>,
-//     #[account(
-//     init,
-//     payer = signer)]
-//     pub climax_controller: ProgramAccount<'info, ClimaxController>,
-//     #[account(
-//     init,
-//     seeds = [climax_controller.key().as_ref(), AUTH_PDA_SEED],
-//     bump,
-//     payer = signer)]
-//     pub auth_pda: Account<'info, AuthAccount>,
-//     #[account(
-//     init,
-//     token::mint = wsol_mint,
-//     token::authority = auth_pda,
-//     seeds = [climax_controller.key().as_ref(), TOKEN_ACCOUNT_PDA_SEED],
-//     bump,
-//     payer = signer)]
-//     pub pool_wrapped_sol: Box<Account<'info, TokenAccount>>,
-//     pub wsol_mint: Box<Account<'info, Mint>>,
-//     pub system_program: Program<'info, System>,
-//     pub token_program: Program<'info, Token>,
-//     pub rent: Sysvar<'info, Rent>,
-// }
-//
+#[derive(Accounts)]
+pub struct InitializeClimaxController<'info> {
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    #[account(
+        init,
+        payer = signer,
+        space = 1000)] // TODO fix this
+    pub climax_controller: Account<'info, ClimaxController>,
+    #[account(
+        init,
+        seeds = [climax_controller.key().as_ref(), AUTH_PDA_SEED],
+        bump,
+        payer = signer,
+        space = 100)] // TODO fix this
+    pub auth_pda: Box<Account<'info, AuthAccount>>,
+    #[account(
+        init,
+        token::mint = wsol_mint,
+        token::authority = auth_pda,
+        seeds = [climax_controller.key().as_ref(), TOKEN_ACCOUNT_PDA_SEED],
+        bump,
+        payer = signer)]
+    pub pool_wrapped_sol: Box<Account<'info, TokenAccount>>,
+    pub wsol_mint: Box<Account<'info, Mint>>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
 // #[derive(Accounts)]
 // pub struct InitUserMetadataPda<'info> {
 //     #[account(mut)]
@@ -692,31 +606,28 @@ pub struct SimulateCreateMetadata<'info> {
 //     pub system_program: Program<'info, System>,
 //     pub token_program: Program<'info, Token>,
 // }
-//
-// #[account]
-// #[derive(Default)]
-// pub struct ClimaxController { //TODO calculate size
-//     // multisig params
-//     pub owners: Vec<Pubkey>,
-//     pub signers: Vec<bool>,
-//     pub signer_threshold: u64,
-//     // withdraw params
-//     pub proposed_receiver: Pubkey,
-//     pub proposed_amount: u64,
-//     pub proposal_is_active: bool,
-//     // tipping point params
-//     pub candy_machine_id: Pubkey,
-//     pub tipping_point_threshold: u64,
-//     pub mint_price: u64,
-//     pub end_timestamp: u64,
-// }
-//
-// #[account]
-// #[derive(Default)]
-// pub struct AuthAccount { //TODO calculate size
-//     pub climax_controller_id: Pubkey,
-// }
-//
+
+#[account]
+#[derive(Default)]
+pub struct ClimaxController {
+    // multisig params
+    pub owners: Vec<Pubkey>,
+    pub signers: Vec<bool>,
+    pub signer_threshold: u64,
+    // withdraw params
+    pub proposed_receiver: Pubkey,
+    pub proposed_amount: u64,
+    pub proposal_is_active: bool,
+    // tipping point params
+    pub candy_machine_id: Pubkey,
+    pub tipping_point_threshold: u64, // num items redeemed
+    pub end_timestamp: u64, // unix timestamp seconds
+}
+
+#[account]
+#[derive(Default)]
+pub struct AuthAccount {}
+
 // #[account]
 // #[derive(Default)]
 // pub struct NftMetadata { //TODO calculate size
@@ -729,49 +640,6 @@ pub struct SimulateCreateMetadata<'info> {
 //     pub amount_paid: u64,
 //     pub amount_withdrawn: u64,
 // }
-
-
-// TODO move this into utils
-// TODO change to metadat v2?
-// Implement custom version of metaplex metadata with traits required by anchor
-#[derive(Clone)]
-pub struct MetaplexMetadata(spl_token_metadata::state::Metadata);
-
-impl anchor_lang::AccountDeserialize for MetaplexMetadata {
-    fn try_deserialize(buf: &mut &[u8]) -> std::result::Result<Self, ProgramError> {
-        MetaplexMetadata::try_deserialize_unchecked(buf)
-    }
-
-    fn try_deserialize_unchecked(buf: &mut &[u8]) -> std::result::Result<Self, ProgramError> {
-        let md = spl_token_metadata::utils::try_from_slice_checked(
-            buf,
-            spl_token_metadata::state::Key::MetadataV1,
-            spl_token_metadata::state::MAX_METADATA_LEN)?;
-        let metadata = MetaplexMetadata(md);
-        Ok(metadata)
-    }
-}
-
-impl AccountSerialize for MetaplexMetadata {
-    fn try_serialize<W: Write>(&self, _writer: &mut W) -> std::result::Result<(), ProgramError> {
-        // no-op
-        Ok(())
-    }
-}
-
-impl Owner for MetaplexMetadata {
-    fn owner() -> Pubkey {
-        spl_token_metadata::ID
-    }
-}
-
-impl Deref for MetaplexMetadata {
-    type Target = spl_token_metadata::state::Metadata;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 #[error]
 pub enum ErrorCode {
