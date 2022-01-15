@@ -265,56 +265,61 @@ pub mod climax_controller {
 
         // update user pda
         // TODO lookup current price in our candymachine
-        ctx.accounts.user_metadata_pda.amount_paid += 1;
+        ctx.accounts.user_metadata_pda.amount_paid += 1000000000;
 
         Ok(())
     }
-    //
-    // pub fn execute_user_withdraw(
-    //     ctx: Context<ExecuteUserWithdraw>,
-    // ) -> ProgramResult {
-    //
-    //     // check if candymachine has reached threshold
-    //     let threshold_reached = ctx.accounts.candy_machine.items_redeemed >= ctx.accounts.climax_controller.tipping_point_threshold;
-    //     let now_ts = Clock::get().unwrap().unix_timestamp;
-    //     let mint_still_active = now_ts < ctx.accounts.climax_controller.end_timestamp as UnixTimestamp;
-    //     if threshold_reached || mint_still_active {
-    //         return Err(ErrorCode::MintStillActiveOrSucceeded.into());
-    //     }
-    //
-    //     // lookup amount based on user account pda
-    //     let amount_to_withdraw = ctx.accounts.user_metadata_pda.amount_paid - ctx.accounts.user_metadata_pda.amount_withdrawn;
-    //     if amount_to_withdraw <= 0 {
-    //         return Err(ErrorCode::FundsAlreadyWithdrawn.into());
-    //     }
-    //
-    //     // get seeds to sign for auth_pda
-    //     let climax_controller_address = ctx.accounts.climax_controller.key();
-    //     let (auth_pda, bump_seed) = Pubkey::find_program_address(&[climax_controller_address.as_ref(), AUTH_PDA_SEED], ctx.program_id);
-    //     let seeds = &[climax_controller_address.as_ref(), &AUTH_PDA_SEED[..], &[bump_seed]];
-    //     let signer = &[&seeds[..]];
-    //
-    //     // check pda addy correct
-    //     if auth_pda != ctx.accounts.auth_pda.key() {
-    //         return Err(ErrorCode::InvalidAuthPda.into());
-    //     }
-    //
-    //     // transfer
-    //     let cpi_accounts = Transfer {
-    //         from: ctx.accounts.pool_wrapped_sol.to_account_info(),
-    //         to: ctx.accounts.proposed_receiver.clone(),
-    //         authority: ctx.accounts.auth_pda.to_account_info(),
-    //     };
-    //     let cpi_program = ctx.accounts.token_program.to_account_info();
-    //     let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
-    //     token::transfer(cpi_ctx, amount_to_withdraw)?;
-    //
-    //     // update user pda with num withdrawn
-    //     ctx.accounts.user_metadata_pda.amount_withdrawn += amount_to_withdraw;
-    //
-    //     Ok(())
-    // }
-    //
+
+    pub fn execute_user_withdraw(
+        ctx: Context<ExecuteUserWithdraw>,
+    ) -> ProgramResult {
+
+        // deserialize candy machine account
+        let candy_machine = deser_candy_machine(&ctx.accounts.candy_machine);
+
+        // check if candymachine has reached threshold
+        let threshold_reached = candy_machine.items_redeemed >= ctx.accounts.climax_controller.tipping_point_threshold;
+        msg!("threshold reached: {:?}", threshold_reached);
+        let now_ts = Clock::get().unwrap().unix_timestamp;
+        let mint_still_active = now_ts < ctx.accounts.climax_controller.end_timestamp as UnixTimestamp;
+        msg!("mint_still active: {:?}", mint_still_active);
+        if threshold_reached || mint_still_active {
+            return Err(ErrorCode::MintStillActiveOrSucceeded.into());
+        }
+
+        // lookup amount based on user account pda
+        let amount_to_withdraw = ctx.accounts.user_metadata_pda.amount_paid - ctx.accounts.user_metadata_pda.amount_withdrawn;
+        if amount_to_withdraw <= 0 {
+            return Err(ErrorCode::FundsAlreadyWithdrawn.into());
+        }
+
+        // get seeds to sign for auth_pda
+        let climax_controller_address = ctx.accounts.climax_controller.key();
+        let (auth_pda, bump_seed) = Pubkey::find_program_address(&[climax_controller_address.as_ref(), AUTH_PDA_SEED], ctx.program_id);
+        let seeds = &[climax_controller_address.as_ref(), &AUTH_PDA_SEED[..], &[bump_seed]];
+        let signer = &[&seeds[..]];
+
+        // check pda addy correct
+        if auth_pda != ctx.accounts.auth_pda.key() {
+            return Err(ErrorCode::InvalidAuthPda.into());
+        }
+
+        // transfer
+        let cpi_accounts = Transfer {
+            from: ctx.accounts.pool_wrapped_sol.to_account_info(),
+            to: ctx.accounts.proposed_receiver.clone(),
+            authority: ctx.accounts.auth_pda.to_account_info(),
+        };
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
+        token::transfer(cpi_ctx, amount_to_withdraw)?;
+
+        // update user pda with num withdrawn
+        ctx.accounts.user_metadata_pda.amount_withdrawn += amount_to_withdraw;
+
+        Ok(())
+    }
+
     // pub fn propose_multisig_withdraw(
     //     ctx: Context<ProposeMultisigWithdraw>,
     //     proposed_amount: u64,
@@ -541,37 +546,37 @@ pub struct RegisterNft<'info> {
     pub system_program: Program<'info, System>,
 }
 
-// #[derive(Accounts)]
-// pub struct ExecuteUserWithdraw<'info> {
-//     #[account(mut)]
-//     pub signer: Signer<'info>,
-//     #[account(mut)]
-//     pub climax_controller: ProgramAccount<'info, ClimaxController>,
-//     #[account(
-//         mut,
-//         seeds = [climax_controller.key().as_ref(), AUTH_PDA_SEED],
-//         bump,
-//         )]
-//     pub auth_pda: Account<'info, AuthAccount>,
-//     #[account(
-//         mut,
-//         seeds = [climax_controller.key().as_ref(), TOKEN_ACCOUNT_PDA_SEED],
-//         bump,
-//         )]
-//     pub pool_wrapped_sol: Box<Account<'info, TokenAccount>>,
-//     #[account(
-//         mut,
-//         seeds = [climax_controller.key().as_ref(), signer.key().as_ref(), USER_PDA_SEED],
-//         bump)]
-//     pub user_metadata_pda: Account<'info, UserMetadata>,
-//     pub wsol_mint: Box<Account<'info, Mint>>,
-//     #[account(mut)]
-//     pub proposed_receiver: AccountInfo<'info>, //TODO get wsol ATA for signer
-//     pub candy_machine: Account<'info, CandyMachine>,
-//     pub system_program: Program<'info, System>,
-//     pub token_program: Program<'info, Token>,
-// }
-//
+#[derive(Accounts)]
+pub struct ExecuteUserWithdraw<'info> {
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    #[account(mut)]
+    pub climax_controller: Account<'info, ClimaxController>,
+    #[account(
+        mut,
+        seeds = [climax_controller.key().as_ref(), AUTH_PDA_SEED],
+        bump,
+        )]
+    pub auth_pda: Account<'info, AuthAccount>,
+    #[account(
+        mut,
+        seeds = [climax_controller.key().as_ref(), TOKEN_ACCOUNT_PDA_SEED],
+        bump,
+        )]
+    pub pool_wrapped_sol: Box<Account<'info, TokenAccount>>,
+    #[account(
+        mut,
+        seeds = [climax_controller.key().as_ref(), signer.key().as_ref(), USER_PDA_SEED],
+        bump)]
+    pub user_metadata_pda: Account<'info, UserMetadata>,
+    pub wsol_mint: Box<Account<'info, Mint>>,
+    #[account(mut)]
+    pub proposed_receiver: AccountInfo<'info>,
+    pub candy_machine: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+}
+
 // #[derive(Accounts)]
 // pub struct ProposeMultisigWithdraw<'info> {
 //     #[account(mut)]
@@ -667,6 +672,11 @@ pub fn deser_metadata(info: &AccountInfo) -> spl_token_metadata::state::Metadata
         data,
         spl_token_metadata::state::Key::MetadataV1,
         spl_token_metadata::state::MAX_METADATA_LEN).unwrap()
+}
+
+pub fn deser_candy_machine(info: &AccountInfo) -> CandyMachine {
+    let mut data: &[u8] = &info.try_borrow_data().unwrap();
+    CandyMachine::try_deserialize(&mut data).unwrap()
 }
 
 #[error]
