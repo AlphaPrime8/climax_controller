@@ -29,6 +29,7 @@ describe("climax_controller", () => {
     const owner2 = Keypair.generate();
     const owner3 = Keypair.generate();
     const candy_machine = Keypair.generate();
+    let mintA = null;
 
     console.log("owner1 pk: ", owner1.publicKey.toString());
     console.log("candy_machine pk: ", candy_machine.publicKey.toString());
@@ -94,7 +95,7 @@ describe("climax_controller", () => {
     it("Test create simulated metadata", async () => {
 
         // create mint and nft
-        let mintA = await Token.createMint(
+        mintA = await Token.createMint(
             provider.connection,
             owner1,
             owner1.publicKey,
@@ -119,6 +120,7 @@ describe("climax_controller", () => {
         );
 
         await program.rpc.simulateCreateMetadata(
+            candy_machine.publicKey,
             {
                 accounts: {
                     signer: owner1.publicKey,
@@ -148,15 +150,17 @@ describe("climax_controller", () => {
 
     });
 
+    let climax_controller = null;
+
     it("Test Initialize climax controller", async () => {
 
         let owners = [owner1.publicKey, owner2.publicKey, owner3.publicKey]; // TODO test all 10 owners
         let signer_threshold = 2;
-        let test_candy_machine = Keypair.generate();
         let tipping_point_threshold = to_lamports(1);
         let end_timestamp = Math.floor(Date.now() / 1000) + (60 * 60 * 24); // unix timestamp seconds
+        let is_simulation = true;
 
-        let climax_controller = Keypair.generate();
+        climax_controller = Keypair.generate();
         const AUTH_PDA_SEED = "auth_pda_seed";
         const [auth_pda] = await PublicKey.findProgramAddress(
             [climax_controller.publicKey.toBuffer(), Buffer.from(AUTH_PDA_SEED)],
@@ -173,9 +177,10 @@ describe("climax_controller", () => {
         await program.rpc.initializeClimaxController(
             owners,
             new anchor.BN(signer_threshold),
-            test_candy_machine.publicKey,
+            candy_machine.publicKey,
             new anchor.BN(tipping_point_threshold),
             new anchor.BN(end_timestamp),
+            is_simulation,
             {
                 accounts: {
                     signer: owner1.publicKey,
@@ -193,35 +198,66 @@ describe("climax_controller", () => {
 
     });
 
-    // it("Init PDAs", async () => {
-    //
-    //
-    //     let owners = [owner1.publicKey, owner2.publicKey, owner3.publicKey];
-    //     let is_officer = [true, false, false];
-    //     let total_threshold = 3;
-    //     let officer_threshold = 1;
-    //
-    //     await program.rpc.initPdas(
-    //         owners,
-    //         is_officer,
-    //         new anchor.BN(total_threshold),
-    //         new anchor.BN(officer_threshold),
-    //         {
-    //             accounts: {
-    //                 signer: owner1.publicKey,
-    //                 authPda: authPda,
-    //                 poolWrappedSol: poolWrappedSol,
-    //                 wsolMint: NATIVE_MINT,
-    //                 systemProgram: SystemProgram.programId,
-    //                 tokenProgram: TOKEN_PROGRAM_ID,
-    //                 rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-    //             },
-    //             signers: [owner1],
-    //         }
-    //     );
-    //
-    // });
-    //
+    it("Test Initialize user metadata pda", async () => {
+
+        const USER_PDA_SEED = "user_pda_seed";
+        const [user_pda] = await PublicKey.findProgramAddress(
+            [climax_controller.publicKey.toBuffer(), owner1.publicKey.toBuffer(), Buffer.from(USER_PDA_SEED)],
+            program.programId
+        );
+
+        console.log("initializing climax controller with pk: ", climax_controller.publicKey.toString());
+
+        await program.rpc.initUserMetadataPda(
+            {
+                accounts: {
+                    signer: owner1.publicKey,
+                    climaxController: climax_controller.publicKey,
+                    userMetadataPda: user_pda,
+                    systemProgram: SystemProgram.programId,
+                },
+                signers: [owner1],
+            }
+        );
+
+    });
+
+    it("Test register NFT", async () => {
+
+        const NFT_PDA_SEED = "nft_registration_pda_seed";
+        const [nft_metadata_pda] = await PublicKey.findProgramAddress(
+            [Buffer.from(NFT_PDA_SEED), mintA.publicKey.toBuffer()],
+            program.programId
+        );
+
+        const USER_PDA_SEED = "user_pda_seed";
+        const [user_pda] = await PublicKey.findProgramAddress(
+            [climax_controller.publicKey.toBuffer(), owner1.publicKey.toBuffer(), Buffer.from(USER_PDA_SEED)],
+            program.programId
+        );
+
+        console.log("initializing climax controller with pk: ", climax_controller.publicKey.toString());
+        console.log("candymachine pubkey: ", candy_machine.publicKey.toString());
+
+        await program.rpc.registerNft(
+            {
+                accounts: {
+                    signer: owner1.publicKey,
+                    climaxController: climax_controller.publicKey,
+                    nftMint: mintA.publicKey,
+                    nftMetadataPda: nft_metadata_pda,
+                    metaplexMetadataPda: metadata_pda,
+                    userMetadataPda: user_pda,
+                    candyMachine: candy_machine.publicKey,
+                    systemProgram: SystemProgram.programId,
+                },
+                signers: [owner1],
+            }
+        );
+
+    });
+
+   //
     // it("Transfer wrapped sol to PDA for wrapped sol", async () => {
     //
     //     // check balance

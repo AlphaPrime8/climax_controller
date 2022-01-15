@@ -125,6 +125,7 @@ pub mod climax_controller {
 
     pub fn simulate_create_metadata(
         ctx: Context<SimulateCreateMetadata>,
+        candy_machine_id: Pubkey,
     ) -> ProgramResult {
 
         let space = spl_token_metadata::state::MAX_METADATA_LEN;
@@ -157,13 +158,19 @@ pub mod climax_controller {
             signer
         )?;
 
+        let creator = spl_token_metadata::state::Creator {
+            address: candy_machine_id,
+            verified: true,
+            share: 1,
+        };
+        let creators = vec![creator];
         let mut metadata = spl_token_metadata::state::Metadata::from_account_info(&ctx.accounts.metadata)?;
         let data = spl_token_metadata::state::Data {
             name: "".to_string(),
             symbol: "".to_string(),
             uri: "wutup gangsta mein".to_string(),
             seller_fee_basis_points: 666,
-            creators: None
+            creators: Some(creators),
         };
         metadata.mint = ctx.accounts.nft_mint.key();
         metadata.key = spl_token_metadata::state::Key::MetadataV1;
@@ -184,6 +191,7 @@ pub mod climax_controller {
         candy_machine_id: Pubkey,
         tipping_point_threshold: u64,
         end_timestamp: u64,
+        is_simulation: bool,
     ) -> ProgramResult {
         if owners.len() > MAX_OWNERS {
             return Err(ErrorCode::TooManyOwners.into());
@@ -205,53 +213,62 @@ pub mod climax_controller {
         climax_controller.tipping_point_threshold = tipping_point_threshold;
         climax_controller.end_timestamp = end_timestamp;
 
+        // testing
+        climax_controller.is_simulation = is_simulation;
+
         Ok(())
     }
-    //
-    // pub fn init_user_metadata_pda(
-    //     ctx: Context<InitUserMetadataPda>,
-    // ) -> ProgramResult {
-    //     ctx.accounts.user_metadata_pda.amount_paid = 0;
-    //     ctx.accounts.user_metadata_pda.amount_withdrawn = 0;
-    //     Ok(())
-    // }
-    //
-    // pub fn register_nft(
-    //     ctx: Context<RegisterNft>,
-    // ) -> ProgramResult {
-    //
-    //     // TODO check that (num_registered + 1) is <= num_minted in candy_machine
-    //
-    //     // manually lookup metaplex metadata pda and ensure match with address
-    //     const PREFIX: &str = "metadata";
-    //     let nft_mint = &ctx.accounts.nft_mint.key();
-    //     let metadata_program_id: Pubkey = spl_token_metadata::ID;
-    //     let metadata_seeds = &[
-    //         PREFIX.as_bytes(),
-    //         metadata_program_id.as_ref(),
-    //         nft_mint.as_ref(),
-    //     ];
-    //     let (metaplex_metadata_pda, _bump) = Pubkey::find_program_address(metadata_seeds, &metadata_program_id);
-    //     if metaplex_metadata_pda != ctx.accounts.metaplex_metadata_pda.key() {
-    //         return Err(ErrorCode::InvalidMetaplexMetadataPda.into());
-    //     }
-    //
-    //     // verify that our candy_machine_id is a verified creator in metaplex metadata pda
-    //     let creators_vec = ctx.accounts.metaplex_metadata_pda.data.creators.as_ref().unwrap();
-    //     let creator_pubkey = ctx.accounts.climax_controller.candy_machine_id.to_string();
-    //     if !creators_vec.iter().any(|c| (c.address.to_string() == creator_pubkey) && c.verified) {
-    //         return Err(ErrorCode::InvalidCandyMachineId.into());
-    //     }
-    //
-    //     // initialize nft pda
-    //     ctx.accounts.nft_metadata_pda.candy_machine_id = ctx.accounts.climax_controller.candy_machine_id.clone();
-    //
-    //     // update user pda
-    //     // TODO lookup current price in our candymachine
-    //     ctx.accounts.user_metadata_pda.amount_paid += ctx.accounts.climax_controller.mint_price;
-    //
-    //     Ok(())
-    // }
+
+    pub fn init_user_metadata_pda(
+        ctx: Context<InitUserMetadataPda>,
+    ) -> ProgramResult {
+        ctx.accounts.user_metadata_pda.amount_paid = 0;
+        ctx.accounts.user_metadata_pda.amount_withdrawn = 0;
+        Ok(())
+    }
+
+    pub fn register_nft(
+        ctx: Context<RegisterNft>,
+    ) -> ProgramResult {
+
+        // TODO check that (num_registered + 1) is <= num_minted in candy_machine
+
+        // manually lookup metaplex metadata pda and ensure match with address
+        let metadata_program_id: Pubkey = if ctx.accounts.climax_controller.is_simulation {
+            ID
+        } else {
+            spl_token_metadata::ID
+        };
+        let nft_mint = &ctx.accounts.nft_mint.key();
+        let metadata_seeds = &[
+            METADATA_PREFIX,
+            metadata_program_id.as_ref(),
+            nft_mint.as_ref(),
+        ];
+        let (metaplex_metadata_pda, _bump) = Pubkey::find_program_address(metadata_seeds, &metadata_program_id);
+        if metaplex_metadata_pda != ctx.accounts.metaplex_metadata_pda.key() {
+            return Err(ErrorCode::InvalidMetaplexMetadataPda.into());
+        }
+
+        // verify that our candy_machine_id is a verified creator in metaplex metadata pda
+        let metadata = deser_metadata(&ctx.accounts.metaplex_metadata_pda);
+        let creators_vec = metadata.data.creators.as_ref().unwrap();
+        let creator_pubkey = ctx.accounts.climax_controller.candy_machine_id.to_string();
+        msg!("creators_vec: {:?}", creators_vec);
+        msg!("target creator pubkey: {:?}", creator_pubkey);
+        if !creators_vec.iter().any(|c| (c.address.to_string() == creator_pubkey) && c.verified) {
+            return Err(ErrorCode::InvalidCandyMachineId.into());
+        }
+
+        // initialize nft pda
+        ctx.accounts.nft_metadata_pda.candy_machine_id = ctx.accounts.climax_controller.candy_machine_id;
+
+        // update user pda
+        // TODO lookup current price in our candymachine
+        ctx.accounts.user_metadata_pda.amount_paid += 1;
+
+        Ok(())
+    }
     //
     // pub fn execute_user_withdraw(
     //     ctx: Context<ExecuteUserWithdraw>,
@@ -485,47 +502,45 @@ pub struct InitializeClimaxController<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-// #[derive(Accounts)]
-// pub struct InitUserMetadataPda<'info> {
-//     #[account(mut)]
-//     pub signer: Signer<'info>,
-//     #[account(mut)]
-//     pub climax_controller: ProgramAccount<'info, ClimaxController>,
-//     #[account(
-//         init,
-//         seeds = [climax_controller.key().as_ref(), signer.key().as_ref(), USER_PDA_SEED],
-//         bump,
-//         payer = signer)]
-//     pub user_metadata_pda: Account<'info, UserMetadata>,
-//     pub system_program: Program<'info, System>,
-//     pub token_program: Program<'info, Token>,
-// }
-//
-// #[derive(Accounts)]
-// pub struct RegisterNft<'info> {
-//     #[account(mut)]
-//     pub signer: Signer<'info>,
-//     #[account(mut)]
-//     pub climax_controller: ProgramAccount<'info, ClimaxController>,
-//     #[account(mut)]
-//     pub nft_mint: Account<'info, Mint>,
-//     #[account(
-//         init,
-//         seeds = [NFT_PDA_SEED, nft_mint.key().as_ref()],
-//         bump,
-//         payer = signer)]
-//     pub nft_metadata_pda: Account<'info, NftMetadata>,
-//     pub metaplex_metadata_pda: Account<'info, MetaplexMetadata>,
-//     #[account(
-//         mut,
-//         seeds = [climax_controller.key().as_ref(), signer.key().as_ref(), USER_PDA_SEED],
-//         bump)]
-//     pub user_metadata_pda: Account<'info, UserMetadata>,
-//     pub candy_machine: Account<'info, CandyMachine>,
-//     pub system_program: Program<'info, System>,
-//     pub token_program: Program<'info, Token>,
-// }
-//
+#[derive(Accounts)]
+pub struct InitUserMetadataPda<'info> {
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    #[account(mut)]
+    pub climax_controller: Account<'info, ClimaxController>,
+    #[account(
+        init,
+        seeds = [climax_controller.key().as_ref(), signer.key().as_ref(), USER_PDA_SEED],
+        bump,
+        payer = signer)]
+    pub user_metadata_pda: Account<'info, UserMetadata>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct RegisterNft<'info> {
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    #[account(mut)]
+    pub climax_controller: Account<'info, ClimaxController>,
+    #[account(mut)]
+    pub nft_mint: Account<'info, Mint>,
+    #[account(
+        init,
+        seeds = [NFT_PDA_SEED, nft_mint.key().as_ref()],
+        bump,
+        payer = signer)]
+    pub nft_metadata_pda: Account<'info, NftMetadata>,
+    pub metaplex_metadata_pda: AccountInfo<'info>,
+    #[account(
+        mut,
+        seeds = [climax_controller.key().as_ref(), signer.key().as_ref(), USER_PDA_SEED],
+        bump)]
+    pub user_metadata_pda: Account<'info, UserMetadata>,
+    pub candy_machine: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,
+}
+
 // #[derive(Accounts)]
 // pub struct ExecuteUserWithdraw<'info> {
 //     #[account(mut)]
@@ -622,24 +637,37 @@ pub struct ClimaxController {
     pub candy_machine_id: Pubkey,
     pub tipping_point_threshold: u64, // num items redeemed
     pub end_timestamp: u64, // unix timestamp seconds
+    // testing
+    pub is_simulation: bool,
 }
 
 #[account]
 #[derive(Default)]
 pub struct AuthAccount {}
 
-// #[account]
-// #[derive(Default)]
-// pub struct NftMetadata { //TODO calculate size
-//     pub candy_machine_id: Pubkey,
-// }
-//
-// #[account]
-// #[derive(Default)]
-// pub struct UserMetadata { //TODO calculate size
-//     pub amount_paid: u64,
-//     pub amount_withdrawn: u64,
-// }
+#[account]
+#[derive(Default)]
+pub struct NftMetadata {
+    pub candy_machine_id: Pubkey,
+}
+
+#[account]
+#[derive(Default)]
+pub struct UserMetadata {
+    pub amount_paid: u64, // lamports
+    pub amount_withdrawn: u64, // lamports
+}
+
+// utils
+
+pub fn deser_metadata(info: &AccountInfo) -> spl_token_metadata::state::Metadata {
+    // TODO add owner check and pda address check
+    let mut data: &[u8] = &info.try_borrow_data().unwrap(); // TODO eliminate unwraps for proper error propagation
+    spl_token_metadata::utils::try_from_slice_checked(
+        data,
+        spl_token_metadata::state::Key::MetadataV1,
+        spl_token_metadata::state::MAX_METADATA_LEN).unwrap()
+}
 
 #[error]
 pub enum ErrorCode {
