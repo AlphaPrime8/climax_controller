@@ -1,13 +1,10 @@
-use std::io::Write;
-use std::ops::Deref;
-use std::str::FromStr;
-use anchor_lang::solana_program::hash::hash;
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 use spl_token_metadata;
-use solana_program::borsh::try_from_slice_unchecked;
 use nft_candy_machine::{CandyMachine, CandyMachineData};
-// use mpl_token_metadata::state::Metadata;
+use solana_program::program::{invoke, invoke_signed};
+use solana_program::system_instruction::create_account;
+use spl_token::solana_program::clock::UnixTimestamp;
 
 declare_id!("3pqVVuz8ghE5LT4Z26xjPi17qqXLartUra8yMkABCeEG");
 
@@ -21,18 +18,13 @@ const MAX_OWNERS: usize = 10;
 
 #[program]
 pub mod climax_controller {
-    use std::convert::TryFrom;
-    use solana_program::program::{invoke, invoke_signed};
-    use solana_program::system_instruction;
-    use solana_program::system_instruction::create_account;
-    use spl_token::solana_program::clock::UnixTimestamp;
+
     use super::*;
 
     pub fn test_load_candy_machine(
         ctx: Context<TestLoadCandyMachine>
     ) -> ProgramResult {
 
-        // TODO use the Account with generic signature to check owner and init, or do so manually (same for metadata)
         // manually deserialize
         let info: &AccountInfo = &ctx.accounts.candy_machine;
         let mut data: &[u8] = &info.try_borrow_data()?;
@@ -57,10 +49,9 @@ pub mod climax_controller {
         ctx: Context<TestLoadMetadata>
     ) -> ProgramResult {
 
-        // TODO add owner check and pda address check
         // manually deserialize
         let info: &AccountInfo = &ctx.accounts.metadata;
-        let mut data: &[u8] = &info.try_borrow_data()?;
+        let data: &[u8] = &info.try_borrow_data()?;
 
         let md: spl_token_metadata::state::Metadata = spl_token_metadata::utils::try_from_slice_checked(
             data,
@@ -84,7 +75,7 @@ pub mod climax_controller {
 
         // init candy machine struct
         let data = CandyMachineData::default();
-        let mut candy_machine = CandyMachine {
+        let candy_machine = CandyMachine {
             data,
             authority: Pubkey::default(),
             wallet: Pubkey::default(),
@@ -111,7 +102,7 @@ pub mod climax_controller {
                 ctx.accounts.candy_machine.to_account_info().clone(),
                 ctx.accounts.system_program.to_account_info().clone(),
             ],
-        );
+        )?;
 
         // get account ref to fill in
         let candy_machine_account = &mut ctx.accounts.candy_machine;
@@ -212,6 +203,7 @@ pub mod climax_controller {
         climax_controller.candy_machine_id = candy_machine_id;
         climax_controller.tipping_point_threshold = tipping_point_threshold;
         climax_controller.end_timestamp = end_timestamp;
+        climax_controller.num_registered = 0;
 
         // testing
         climax_controller.is_simulation = is_simulation;
@@ -231,7 +223,11 @@ pub mod climax_controller {
         ctx: Context<RegisterNft>,
     ) -> ProgramResult {
 
-        // TODO check that (num_registered + 1) is <= num_minted in candy_machine
+        // check that (num_registered + 1) is <= num_minted in candy_machine
+        let candy_machine = deser_candy_machine(&ctx.accounts.candy_machine, ctx.accounts.climax_controller.is_simulation)?;
+        if (ctx.accounts.climax_controller.num_registered + 1) > candy_machine.items_redeemed {
+            return Err(ErrorCode::TooManyRegistrations.into());
+        }
 
         // manually lookup metaplex metadata pda and ensure match with address
         let metadata_program_id: Pubkey = if ctx.accounts.climax_controller.is_simulation {
@@ -251,7 +247,7 @@ pub mod climax_controller {
         }
 
         // verify that our candy_machine_id is a verified creator in metaplex metadata pda
-        let metadata = deser_metadata(&ctx.accounts.metaplex_metadata_pda);
+        let metadata = deser_metadata(&ctx.accounts.metaplex_metadata_pda, ctx.accounts.climax_controller.is_simulation)?;
         let creators_vec = metadata.data.creators.as_ref().unwrap();
         let creator_pubkey = ctx.accounts.climax_controller.candy_machine_id.to_string();
         msg!("creators_vec: {:?}", creators_vec);
@@ -264,8 +260,9 @@ pub mod climax_controller {
         ctx.accounts.nft_metadata_pda.candy_machine_id = ctx.accounts.climax_controller.candy_machine_id;
 
         // update user pda
-        // TODO lookup current price in our candymachine
-        ctx.accounts.user_metadata_pda.amount_paid += 1000000000;
+        let current_mint_price = candy_machine.data.price;
+        ctx.accounts.user_metadata_pda.amount_paid += current_mint_price;
+        ctx.accounts.climax_controller.num_registered += 1;
 
         Ok(())
     }
@@ -275,7 +272,7 @@ pub mod climax_controller {
     ) -> ProgramResult {
 
         // deserialize candy machine account
-        let candy_machine = deser_candy_machine(&ctx.accounts.candy_machine);
+        let candy_machine = deser_candy_machine(&ctx.accounts.candy_machine, ctx.accounts.climax_controller.is_simulation)?;
 
         // check if candymachine has reached threshold
         let threshold_reached = candy_machine.items_redeemed >= ctx.accounts.climax_controller.tipping_point_threshold;
@@ -320,122 +317,127 @@ pub mod climax_controller {
         Ok(())
     }
 
-    // pub fn propose_multisig_withdraw(
-    //     ctx: Context<ProposeMultisigWithdraw>,
-    //     proposed_amount: u64,
-    //     proposed_receiver: Pubkey,
-    // ) -> ProgramResult {
-    //
-    //     // check if signer is owner
-    //     let climax_controller = &ctx.accounts.climax_controller;
-    //     let owner_index = climax_controller
-    //         .owners
-    //         .iter()
-    //         .position(|a| a == ctx.accounts.signer.key)
-    //         .ok_or(ErrorCode::InvalidOwner)?;
-    //
-    //     // check if amount of proposed amount is available in treasury
-    //     if proposed_amount > ctx.accounts.pool_wrapped_sol.amount {
-    //         return Err(ErrorCode::InsufficientBalance.into());
-    //     }
-    //
-    //     // reset state
-    //     let climax_controller = &mut ctx.accounts.climax_controller;
-    //     for i in 0..climax_controller.owners.len(){
-    //         if i == owner_index {
-    //             climax_controller.signers[i] = true;
-    //         } else {
-    //             climax_controller.signers[i] = false;
-    //         }
-    //     }
-    //
-    //     // set params
-    //     climax_controller.proposal_is_active = true;
-    //     climax_controller.proposed_receiver = proposed_receiver;
-    //     climax_controller.proposed_amount = proposed_amount;
-    //
-    //     Ok(())
-    // }
-    //
-    // pub fn approve_multisig_withdraw(
-    //     ctx: Context<ApproveMultisigWithdraw>,
-    //     proposed_receiver: Pubkey,
-    //     proposed_amount: u64,
-    // ) -> ProgramResult {
-    //
-    //     // check if proposal is active
-    //     let climax_controller = &ctx.accounts.climax_controller;
-    //     if !climax_controller.proposal_is_active {
-    //         return Err(ErrorCode::ProposalNotActive.into());
-    //     }
-    //
-    //     // check if signer is owner
-    //     let owner_index = climax_controller
-    //         .owners
-    //         .iter()
-    //         .position(|a| a == ctx.accounts.signer.key)
-    //         .ok_or(ErrorCode::InvalidOwner)?;
-    //
-    //     // check if proposal params match expected
-    //     if (proposed_amount != climax_controller.proposed_amount) || (proposed_receiver != climax_controller.proposed_receiver) {
-    //         return Err(ErrorCode::ProposalMismatch.into());
-    //     }
-    //
-    //     // set signer vec to true
-    //     ctx.accounts.climax_controller.signers[owner_index] = true;
-    //
-    //     Ok(())
-    // }
-    //
-    // pub fn execute_multisig_withdraw(
-    //     ctx: Context<ExecuteMultisigWithdraw>,
-    // ) -> ProgramResult {
-    //
-    //     // TODO check that tipping point has succeeded
-    //
-    //     // check proposal is active
-    //     let climax_controller = &ctx.accounts.climax_controller;
-    //     if !climax_controller.proposal_is_active {
-    //         return Err(ErrorCode::ProposalNotActive.into());
-    //     }
-    //
-    //     // calculate total signers and ensure meets threshold
-    //     let mut num_signers = 0;
-    //     for i in 0..climax_controller.owners.len() {
-    //         if climax_controller.signers[i] {
-    //             num_signers += 1;
-    //         }
-    //     }
-    //     if num_signers < climax_controller.signer_threshold {
-    //         return Err(ErrorCode::NotEnoughSignersApproved.into());
-    //     }
-    //
-    //     // get seeds to sign for auth_pda
-    //     let climax_controller_address = ctx.accounts.climax_controller.key();
-    //     let (auth_pda, bump_seed) = Pubkey::find_program_address(&[climax_controller_address.as_ref(), AUTH_PDA_SEED], ctx.program_id);
-    //     let seeds = &[climax_controller_address.as_ref(), &AUTH_PDA_SEED[..], &[bump_seed]];
-    //     let signer = &[&seeds[..]];
-    //
-    //     // check pda addy correct
-    //     if auth_pda != ctx.accounts.auth_pda.key() {
-    //         return Err(ErrorCode::InvalidAuthPda.into());
-    //     }
-    //
-    //     // transfer
-    //     let cpi_accounts = Transfer {
-    //         from: ctx.accounts.pool_wrapped_sol.to_account_info(),
-    //         to: ctx.accounts.proposed_receiver.clone(),
-    //         authority: ctx.accounts.auth_pda.to_account_info(),
-    //     };
-    //     let cpi_program = ctx.accounts.token_program.to_account_info();
-    //     let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
-    //     token::transfer(cpi_ctx, climax_controller.proposed_amount)?;
-    //
-    //     // set inactive
-    //     ctx.accounts.climax_controller.proposal_is_active = false;
-    //
-    //     Ok(())
-    // }
+    pub fn propose_multisig_withdraw(
+        ctx: Context<ProposeMultisigWithdraw>,
+        proposed_amount: u64,
+        proposed_receiver: Pubkey,
+    ) -> ProgramResult {
+
+        // check if signer is owner
+        let climax_controller = &ctx.accounts.climax_controller;
+        let owner_index = climax_controller
+            .owners
+            .iter()
+            .position(|a| a == ctx.accounts.signer.key)
+            .ok_or(ErrorCode::InvalidOwner)?;
+
+        // check if amount of proposed amount is available in treasury
+        if proposed_amount > ctx.accounts.pool_wrapped_sol.amount {
+            return Err(ErrorCode::InsufficientBalance.into());
+        }
+
+        // reset state
+        let climax_controller = &mut ctx.accounts.climax_controller;
+        for i in 0..climax_controller.owners.len(){
+            if i == owner_index {
+                climax_controller.signers[i] = true;
+            } else {
+                climax_controller.signers[i] = false;
+            }
+        }
+
+        // set params
+        climax_controller.proposal_is_active = true;
+        climax_controller.proposed_receiver = proposed_receiver;
+        climax_controller.proposed_amount = proposed_amount;
+
+        Ok(())
+    }
+
+    pub fn approve_multisig_withdraw(
+        ctx: Context<ApproveMultisigWithdraw>,
+        proposed_amount: u64,
+        proposed_receiver: Pubkey,
+    ) -> ProgramResult {
+
+        // check if proposal is active
+        let climax_controller = &ctx.accounts.climax_controller;
+        if !climax_controller.proposal_is_active {
+            return Err(ErrorCode::ProposalNotActive.into());
+        }
+
+        // check if signer is owner
+        let owner_index = climax_controller
+            .owners
+            .iter()
+            .position(|a| a == ctx.accounts.signer.key)
+            .ok_or(ErrorCode::InvalidOwner)?;
+
+        // check if proposal params match expected
+        if (proposed_amount != climax_controller.proposed_amount) || (proposed_receiver != climax_controller.proposed_receiver) {
+            return Err(ErrorCode::ProposalMismatch.into());
+        }
+
+        // set signer vec to true
+        ctx.accounts.climax_controller.signers[owner_index] = true;
+
+        Ok(())
+    }
+
+    pub fn execute_multisig_withdraw(
+        ctx: Context<ExecuteMultisigWithdraw>,
+    ) -> ProgramResult {
+
+        // check that tipping point has succeeded
+        let candy_machine = deser_candy_machine(&ctx.accounts.candy_machine, ctx.accounts.climax_controller.is_simulation)?;
+        let threshold_reached = candy_machine.items_redeemed >= ctx.accounts.climax_controller.tipping_point_threshold;
+        if !threshold_reached {
+            return Err(ErrorCode::MintThresholdNotReached.into());
+        }
+
+        // check proposal is active
+        let climax_controller = &ctx.accounts.climax_controller;
+        if !climax_controller.proposal_is_active {
+            return Err(ErrorCode::ProposalNotActive.into());
+        }
+
+        // calculate total signers and ensure meets threshold
+        let mut num_signers = 0;
+        for i in 0..climax_controller.owners.len() {
+            if climax_controller.signers[i] {
+                num_signers += 1;
+            }
+        }
+        if num_signers < climax_controller.signer_threshold {
+            return Err(ErrorCode::NotEnoughSignersApproved.into());
+        }
+
+        // get seeds to sign for auth_pda
+        let climax_controller_address = ctx.accounts.climax_controller.key();
+        let (auth_pda, bump_seed) = Pubkey::find_program_address(&[climax_controller_address.as_ref(), AUTH_PDA_SEED], ctx.program_id);
+        let seeds = &[climax_controller_address.as_ref(), &AUTH_PDA_SEED[..], &[bump_seed]];
+        let signer = &[&seeds[..]];
+
+        // check pda addy correct
+        if auth_pda != ctx.accounts.auth_pda.key() {
+            return Err(ErrorCode::InvalidAuthPda.into());
+        }
+
+        // transfer
+        let cpi_accounts = Transfer {
+            from: ctx.accounts.pool_wrapped_sol.to_account_info(),
+            to: ctx.accounts.proposed_receiver.clone(),
+            authority: ctx.accounts.auth_pda.to_account_info(),
+        };
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
+        token::transfer(cpi_ctx, climax_controller.proposed_amount)?;
+
+        // set inactive
+        ctx.accounts.climax_controller.proposal_is_active = false;
+
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -484,14 +486,14 @@ pub struct InitializeClimaxController<'info> {
     #[account(
         init,
         payer = signer,
-        space = 1000)] // TODO fix this
+        space = MAX_CLIMAX_CONTROLLER_LEN)]
     pub climax_controller: Account<'info, ClimaxController>,
     #[account(
         init,
         seeds = [climax_controller.key().as_ref(), AUTH_PDA_SEED],
         bump,
         payer = signer,
-        space = 100)] // TODO fix this
+        space = 9)]
     pub auth_pda: Box<Account<'info, AuthAccount>>,
     #[account(
         init,
@@ -577,61 +579,75 @@ pub struct ExecuteUserWithdraw<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-// #[derive(Accounts)]
-// pub struct ProposeMultisigWithdraw<'info> {
-//     #[account(mut)]
-//     pub signer: Signer<'info>,
-//     #[account(mut)]
-//     pub climax_controller: ProgramAccount<'info, ClimaxController>,
-//     #[account(
-//         mut,
-//         seeds = [climax_controller.key().as_ref(), TOKEN_ACCOUNT_PDA_SEED],
-//         bump)]
-//     pub pool_wrapped_sol: Box<Account<'info, TokenAccount>>,
-//     pub wsol_mint: Box<Account<'info, Mint>>,
-//     pub system_program: Program<'info, System>,
-//     pub token_program: Program<'info, Token>,
-// }
-//
-// #[derive(Accounts)]
-// pub struct ApproveMultisigWithdraw<'info> {
-//     #[account(mut)]
-//     pub signer: Signer<'info>,
-//     #[account(mut)]
-//     pub climax_controller: ProgramAccount<'info, ClimaxController>,
-//     pub system_program: Program<'info, System>,
-// }
-//
-// #[derive(Accounts)]
-// pub struct ExecuteMultisigWithdraw<'info> {
-//     #[account(mut)]
-//     pub signer: Signer<'info>,
-//     #[account(mut)]
-//     pub climax_controller: ProgramAccount<'info, ClimaxController>,
-//     #[account(
-//         mut,
-//         seeds = [climax_controller.key().as_ref(), TOKEN_ACCOUNT_PDA_SEED],
-//         bump)]
-//     pub pool_wrapped_sol: Box<Account<'info, TokenAccount>>,
-//     #[account(
-//         mut,
-//         constraint = proposed_receiver.key() == climax_controller.proposed_receiver)]
-//     pub proposed_receiver: AccountInfo<'info>,
-//     #[account(
-//         mut,
-//         seeds = [climax_controller.key().as_ref(), AUTH_PDA_SEED],
-//         bump)]
-//     pub auth_pda: Account<'info, AuthAccount>,
-//     pub wsol_mint: Box<Account<'info, Mint>>,
-//     pub system_program: Program<'info, System>,
-//     pub token_program: Program<'info, Token>,
-// }
+#[derive(Accounts)]
+pub struct ProposeMultisigWithdraw<'info> {
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    #[account(mut)]
+    pub climax_controller: Account<'info, ClimaxController>,
+    #[account(
+        mut,
+        seeds = [climax_controller.key().as_ref(), TOKEN_ACCOUNT_PDA_SEED],
+        bump)]
+    pub pool_wrapped_sol: Box<Account<'info, TokenAccount>>,
+    pub wsol_mint: Box<Account<'info, Mint>>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct ApproveMultisigWithdraw<'info> {
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    #[account(mut)]
+    pub climax_controller: Account<'info, ClimaxController>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct ExecuteMultisigWithdraw<'info> {
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    #[account(mut)]
+    pub climax_controller: Account<'info, ClimaxController>,
+    #[account(
+        mut,
+        seeds = [climax_controller.key().as_ref(), TOKEN_ACCOUNT_PDA_SEED],
+        bump)]
+    pub pool_wrapped_sol: Box<Account<'info, TokenAccount>>,
+    #[account(
+        mut,
+        constraint = proposed_receiver.key() == climax_controller.proposed_receiver)]
+    pub proposed_receiver: AccountInfo<'info>,
+    #[account(
+        mut,
+        seeds = [climax_controller.key().as_ref(), AUTH_PDA_SEED],
+        bump)]
+    pub auth_pda: Account<'info, AuthAccount>,
+    pub wsol_mint: Box<Account<'info, Mint>>,
+    pub candy_machine: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+}
+
+pub const MAX_CLIMAX_CONTROLLER_LEN: usize = 9 // discriminator + 1?
+    + (32 * MAX_OWNERS) // owners
+    + (1 * MAX_OWNERS) // signers
+    + 8 // signer threshold
+    + 32 // proposed_receiver
+    + 8 // proposed_amount
+    + 1 // proposal_is_active
+    + 32 // candy_machine_id
+    + 8 // tipping_point_threshold
+    + 8 // end_timestamp
+    + 8 // num_registered
+    + 1; // is_simulation
 
 #[account]
 #[derive(Default)]
 pub struct ClimaxController {
     // multisig params
-    pub owners: Vec<Pubkey>,
+    pub owners: Vec<Pubkey>, // max is 10
     pub signers: Vec<bool>,
     pub signer_threshold: u64,
     // withdraw params
@@ -642,6 +658,7 @@ pub struct ClimaxController {
     pub candy_machine_id: Pubkey,
     pub tipping_point_threshold: u64, // num items redeemed
     pub end_timestamp: u64, // unix timestamp seconds
+    pub num_registered: u64,
     // testing
     pub is_simulation: bool,
 }
@@ -664,19 +681,34 @@ pub struct UserMetadata {
 }
 
 // utils
-
-pub fn deser_metadata(info: &AccountInfo) -> spl_token_metadata::state::Metadata {
-    // TODO add owner check and pda address check
-    let mut data: &[u8] = &info.try_borrow_data().unwrap(); // TODO eliminate unwraps for proper error propagation
-    spl_token_metadata::utils::try_from_slice_checked(
+pub fn deser_metadata(info: &AccountInfo, is_simulation: bool) -> core::result::Result<spl_token_metadata::state::Metadata, ProgramError> {
+    check_owner(info, is_simulation)?;
+    let data: &[u8] = &info.try_borrow_data()?;
+    let md = spl_token_metadata::utils::try_from_slice_checked(
         data,
         spl_token_metadata::state::Key::MetadataV1,
-        spl_token_metadata::state::MAX_METADATA_LEN).unwrap()
+        spl_token_metadata::state::MAX_METADATA_LEN)?;
+    Ok(md)
 }
 
-pub fn deser_candy_machine(info: &AccountInfo) -> CandyMachine {
-    let mut data: &[u8] = &info.try_borrow_data().unwrap();
-    CandyMachine::try_deserialize(&mut data).unwrap()
+pub fn deser_candy_machine(info: &AccountInfo, is_simulation: bool) -> core::result::Result<CandyMachine, ProgramError> {
+    check_owner(info, is_simulation)?;
+    let mut data: &[u8] = &info.try_borrow_data()?;
+    let cm = CandyMachine::try_deserialize(&mut data)?;
+    Ok(cm)
+}
+
+pub fn check_owner(info: &AccountInfo, is_simulation: bool) -> ProgramResult {
+    let actual_owner = *info.owner;
+    let expected_owner = if is_simulation {
+        ID
+    } else {
+        spl_token_metadata::ID
+    };
+    if actual_owner != expected_owner {
+        return Err(ErrorCode::TooManyOwners.into());
+    }
+    Ok(())
 }
 
 #[error]
@@ -703,5 +735,11 @@ pub enum ErrorCode {
     ProposalMismatch,
     #[msg("Not enough signers have approved")]
     NotEnoughSignersApproved,
+    #[msg("Invalid account owner")]
+    InvalidAccountOwner,
+    #[msg("Too many registrations")]
+    TooManyRegistrations,
+    #[msg("Mint threshold not reached")]
+    MintThresholdNotReached,
 }
 

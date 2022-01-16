@@ -32,8 +32,8 @@ describe("climax_controller", () => {
     let mintA = null;
     let pool_wrapped_sol = null;
 
-    console.log("owner1 pk: ", owner1.publicKey.toString());
-    console.log("candy_machine pk: ", candy_machine.publicKey.toString());
+    // console.log("owner1 pk: ", owner1.publicKey.toString());
+    // console.log("candy_machine pk: ", candy_machine.publicKey.toString());
 
     it("Create test accounts, wrap sol, lookup PDAs.", async () => {
 
@@ -141,7 +141,7 @@ describe("climax_controller", () => {
     it("Test Initialize climax controller", async () => {
 
         let owners = [owner1.publicKey, owner2.publicKey, owner3.publicKey]; // TODO test all 10 owners
-        let signer_threshold = 2;
+        let signer_threshold = 1;
         let tipping_point_threshold = to_lamports(100);
         // let end_timestamp = Math.floor(Date.now() / 1000) + (60 * 60 * 24); // unix timestamp seconds
         let end_timestamp = 0;
@@ -159,7 +159,7 @@ describe("climax_controller", () => {
             program.programId
         );
 
-        console.log("initializing climax controller with pk: ", climax_controller.publicKey.toString());
+        // console.log("initializing climax controller with pk: ", climax_controller.publicKey.toString());
 
         await program.rpc.initializeClimaxController(
             owners,
@@ -193,7 +193,7 @@ describe("climax_controller", () => {
             program.programId
         );
 
-        console.log("initializing climax controller with pk: ", climax_controller.publicKey.toString());
+        // console.log("initializing climax controller with pk: ", climax_controller.publicKey.toString());
 
         await program.rpc.initUserMetadataPda(
             {
@@ -223,8 +223,8 @@ describe("climax_controller", () => {
             program.programId
         );
 
-        console.log("initializing climax controller with pk: ", climax_controller.publicKey.toString());
-        console.log("candymachine pubkey: ", candy_machine.publicKey.toString());
+        // console.log("initializing climax controller with pk: ", climax_controller.publicKey.toString());
+        // console.log("candymachine pubkey: ", candy_machine.publicKey.toString());
 
         await program.rpc.registerNft(
             {
@@ -249,7 +249,7 @@ describe("climax_controller", () => {
         // check balance
         let nativeMint = new Token(provider.connection, NATIVE_MINT, TOKEN_PROGRAM_ID, owner1);
         let acctInfo = await nativeMint.getAccountInfo(pool_wrapped_sol);
-        console.log("got amount before: ", acctInfo.amount.toNumber());
+        // console.log("got amount before: ", acctInfo.amount.toNumber());
 
         wrappedSolAta = await Token.createWrappedNativeAccount(provider.connection, TOKEN_PROGRAM_ID, owner1.publicKey, owner1, to_lamports(5));
 
@@ -279,7 +279,7 @@ describe("climax_controller", () => {
         );
 
         acctInfo = await nativeMint.getAccountInfo(pool_wrapped_sol);
-        console.log("got amount after: ", acctInfo.amount.toNumber());
+        // console.log("got amount after: ", acctInfo.amount.toNumber());
 
     });
 
@@ -298,8 +298,8 @@ describe("climax_controller", () => {
         );
 
 
-        console.log("initializing climax controller with pk: ", climax_controller.publicKey.toString());
-        console.log("candymachine pubkey: ", candy_machine.publicKey.toString());
+        // console.log("initializing climax controller with pk: ", climax_controller.publicKey.toString());
+        // console.log("candymachine pubkey: ", candy_machine.publicKey.toString());
 
         await program.rpc.executeUserWithdraw(
             {
@@ -321,34 +321,79 @@ describe("climax_controller", () => {
 
     });
 
+    it("Propose withdraw", async () => {
 
+        // lookup amount in pool pda
+        let proposed_amount = 1;
 
-    // it("Propose withdraw", async () => {
-    //
-    //     // lookup amount in pool pda
-    //
-    //     let proposed_amount = 5;
-    //
-    //     await program.rpc.proposeWithdraw(
-    //         wrappedSolAta,
-    //         new anchor.BN(to_lamports(proposed_amount)),
-    //         {
-    //             accounts: {
-    //                 signer: owner2.publicKey,
-    //                 authPda: authPda,
-    //                 poolWrappedSol: poolWrappedSol,
-    //                 systemProgram: SystemProgram.programId,
-    //                 tokenProgram: TOKEN_PROGRAM_ID,
-    //             },
-    //             signers: [owner2],
-    //         }
-    //     );
-    //
-    //     // load PDA state
-    //     let authPdaInfo = await program.account.multisigAccount.fetch(authPda);
-    //     console.log("got auth pda info: ", authPdaInfo);
-    // });
-    //
+        await program.rpc.proposeMultisigWithdraw(
+            new anchor.BN(to_lamports(proposed_amount)),
+            wrappedSolAta,
+            {
+                accounts: {
+                    signer: owner1.publicKey,
+                    climaxController: climax_controller.publicKey,
+                    poolWrappedSol: pool_wrapped_sol,
+                    wsolMint: NATIVE_MINT,
+                    systemProgram: SystemProgram.programId,
+                    tokenProgram: TOKEN_PROGRAM_ID,
+                },
+                signers: [owner1],
+            }
+        );
+
+        // load PDA state
+        let climaxControllerInfo = await program.account.climaxController.fetch(climax_controller.publicKey);
+        // console.log("got auth pda info: ", climaxControllerInfo);
+    });
+
+    it("Approve withdraw", async () => {
+
+        // lookup amount in pool pda
+        let proposed_amount = 1;
+
+        await program.rpc.approveMultisigWithdraw(
+            new anchor.BN(to_lamports(proposed_amount)),
+            wrappedSolAta,
+            {
+                accounts: {
+                    signer: owner1.publicKey,
+                    climaxController: climax_controller.publicKey,
+                    systemProgram: SystemProgram.programId,
+                },
+                signers: [owner1],
+            }
+        );
+
+        // load PDA state
+        let climaxControllerInfo = await program.account.climaxController.fetch(climax_controller.publicKey);
+        // console.log("got auth pda info: ", climaxControllerInfo);
+    });
+
+    it("Test execute multisig withdraw", async () => {
+
+        await program.rpc.executeMultisigWithdraw(
+            {
+                accounts: {
+                    signer: owner1.publicKey,
+                    climaxController: climax_controller.publicKey,
+                    poolWrappedSol: pool_wrapped_sol,
+                    proposedReceiver: wrappedSolAta,
+                    authPda: auth_pda,
+                    wsolMint: WRAPPED_SOL_MINT,
+                    candyMachine: candy_machine.publicKey,
+                    systemProgram: SystemProgram.programId,
+                    tokenProgram: TOKEN_PROGRAM_ID,
+                },
+                signers: [owner1],
+            }
+        );
+    });
+
+    it("Test if anyone other than rohdel reads fine print", async () => {
+
+    });
+
     // if (TEST_COUNTER_EXAMPLE) {
     //
     //     it("Test withdraw without approval", async () => {
@@ -376,79 +421,5 @@ describe("climax_controller", () => {
     //
     //     });
     // }
-    //
-    // it("Approve withdraw", async () => {
-    //
-    //     // lookup amount in pool pda
-    //
-    //     let proposed_amount = 5;
-    //
-    //     await program.rpc.approveWithdraw(
-    //         wrappedSolAta,
-    //         new anchor.BN(to_lamports(proposed_amount)),
-    //         {
-    //             accounts: {
-    //                 signer: owner1.publicKey,
-    //                 authPda: authPda,
-    //                 systemProgram: SystemProgram.programId,
-    //             },
-    //             signers: [owner1],
-    //         }
-    //     );
-    //
-    //     await program.rpc.approveWithdraw(
-    //         wrappedSolAta,
-    //         new anchor.BN(to_lamports(proposed_amount)),
-    //         {
-    //             accounts: {
-    //                 signer: owner2.publicKey,
-    //                 authPda: authPda,
-    //                 systemProgram: SystemProgram.programId,
-    //             },
-    //             signers: [owner2],
-    //         }
-    //     );
-    //
-    //     await program.rpc.approveWithdraw(
-    //         wrappedSolAta,
-    //         new anchor.BN(to_lamports(proposed_amount)),
-    //         {
-    //             accounts: {
-    //                 signer: owner3.publicKey,
-    //                 authPda: authPda,
-    //                 systemProgram: SystemProgram.programId,
-    //             },
-    //             signers: [owner3],
-    //         }
-    //     );
-    //
-    // });
-    //
-    // it("Execute Withdraw", async () => {
-    //
-    //     // check balance
-    //     let nativeMint = new Token(provider.connection, NATIVE_MINT, TOKEN_PROGRAM_ID, owner1);
-    //     let acctInfo = await nativeMint.getAccountInfo(wrappedSolAta);
-    //     console.log("got amount before: ", acctInfo.amount.toNumber());
-    //
-    //     await program.rpc.executeWithdraw(
-    //         {
-    //             accounts: {
-    //                 signer: owner1.publicKey,
-    //                 authPda: authPda,
-    //                 poolWrappedSol: poolWrappedSol,
-    //                 proposedReceiver: wrappedSolAta,
-    //                 wsolMint: NATIVE_MINT,
-    //                 systemProgram: SystemProgram.programId,
-    //                 tokenProgram: TOKEN_PROGRAM_ID,
-    //             },
-    //             signers: [owner1],
-    //         }
-    //     );
-    //
-    //     acctInfo = await nativeMint.getAccountInfo(wrappedSolAta);
-    //     console.log("got amount after: ", acctInfo.amount.toNumber());
-    //
-    // });
 
 });
