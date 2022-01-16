@@ -21,160 +21,6 @@ pub mod climax_controller {
 
     use super::*;
 
-    pub fn test_load_candy_machine(
-        ctx: Context<TestLoadCandyMachine>
-    ) -> ProgramResult {
-
-        // manually deserialize
-        let info: &AccountInfo = &ctx.accounts.candy_machine;
-        let mut data: &[u8] = &info.try_borrow_data()?;
-        let cm: CandyMachine = CandyMachine::try_deserialize(&mut data)?;
-        let items_redeemed = cm.items_redeemed;
-
-        if items_redeemed != 666 {
-            panic!("data is incorrect");
-        }
-
-        msg!("items redeeemed: {}", items_redeemed);
-
-        // print the first eight bytes of data
-        for i in 0..8 {
-            msg!("got byte {}: {}", i, data[i]);
-        }
-
-        Ok(())
-    }
-
-    pub fn test_load_metadata(
-        ctx: Context<TestLoadMetadata>
-    ) -> ProgramResult {
-
-        // manually deserialize
-        let info: &AccountInfo = &ctx.accounts.metadata;
-        let data: &[u8] = &info.try_borrow_data()?;
-
-        let md: spl_token_metadata::state::Metadata = spl_token_metadata::utils::try_from_slice_checked(
-            data,
-            spl_token_metadata::state::Key::MetadataV1,
-            spl_token_metadata::state::MAX_METADATA_LEN)?;
-
-
-        let uri = &md.data.uri;
-        msg!("got uri: {}", *uri);
-
-        if md.data.seller_fee_basis_points != 666 {
-            panic!("bad metadata");
-        }
-
-        Ok(())
-    }
-
-    pub fn simulate_create_candy_machine(
-        ctx: Context<SimulateCreateCandyMachine>
-    ) -> ProgramResult {
-
-        // init candy machine struct
-        let data = CandyMachineData::default();
-        let candy_machine = CandyMachine {
-            data,
-            authority: Pubkey::default(),
-            wallet: Pubkey::default(),
-            token_mint: None,
-            items_redeemed: 666,
-        };
-        let mut new_data: Vec<u8> = vec![51, 173, 177, 113, 25, 241, 109, 189]; // manually got discriminator, can also just hash("account:CandyMachine")[..8]
-        new_data.append(&mut candy_machine.try_to_vec().unwrap());
-
-
-        let space = new_data.len();
-
-        // create account
-        invoke(
-            &create_account(
-                ctx.accounts.signer.key,
-                ctx.accounts.candy_machine.key,
-                1.max(Rent::get()?.minimum_balance(space)),
-                space as u64,
-                &ID,
-            ),
-            &[
-                ctx.accounts.signer.to_account_info().clone(),
-                ctx.accounts.candy_machine.to_account_info().clone(),
-                ctx.accounts.system_program.to_account_info().clone(),
-            ],
-        )?;
-
-        // get account ref to fill in
-        let candy_machine_account = &mut ctx.accounts.candy_machine;
-        let mut data = candy_machine_account.data.borrow_mut();
-        for i in 0..new_data.len() {
-            data[i] = new_data[i];
-        }
-
-        Ok(())
-    }
-
-    pub fn simulate_create_metadata(
-        ctx: Context<SimulateCreateMetadata>,
-        candy_machine_id: Pubkey,
-    ) -> ProgramResult {
-
-        let space = spl_token_metadata::state::MAX_METADATA_LEN;
-
-        // lookup and verify pda info
-        let nft_mint = &ctx.accounts.nft_mint.key();
-        let metadata_program_id: Pubkey = ID;
-        let metadata_seeds = &[METADATA_PREFIX, metadata_program_id.as_ref(),nft_mint.as_ref()];
-        let (pda, bump_seed) = Pubkey::find_program_address(metadata_seeds, &metadata_program_id);
-        if pda != ctx.accounts.metadata.key() {
-            panic!("wrong pda addy");
-        }
-        let metadata_seeds = &[METADATA_PREFIX, metadata_program_id.as_ref(),nft_mint.as_ref(), &[bump_seed]];
-        let signer = &[&metadata_seeds[..]];
-
-        // create pda
-        invoke_signed(
-            &create_account(
-                ctx.accounts.signer.key,
-                &pda,
-                1.max(Rent::get()?.minimum_balance(space)),
-                space as u64,
-                &ID
-            ),
-            &[
-                ctx.accounts.signer.to_account_info().clone(),
-                ctx.accounts.metadata.to_account_info().clone(),
-                ctx.accounts.system_program.to_account_info().clone(),
-            ],
-            signer
-        )?;
-
-        let creator = spl_token_metadata::state::Creator {
-            address: candy_machine_id,
-            verified: true,
-            share: 1,
-        };
-        let creators = vec![creator];
-        let mut metadata = spl_token_metadata::state::Metadata::from_account_info(&ctx.accounts.metadata)?;
-        let data = spl_token_metadata::state::Data {
-            name: "".to_string(),
-            symbol: "".to_string(),
-            uri: "wutup gangsta mein".to_string(),
-            seller_fee_basis_points: 666,
-            creators: Some(creators),
-        };
-        metadata.mint = ctx.accounts.nft_mint.key();
-        metadata.key = spl_token_metadata::state::Key::MetadataV1;
-        metadata.data = data;
-        metadata.is_mutable = true;
-        metadata.update_authority = ctx.accounts.signer.key();
-
-        spl_token_metadata::utils::puff_out_data_fields(&mut metadata);
-        metadata.serialize(&mut *ctx.accounts.metadata.try_borrow_mut_data().unwrap())?;
-
-        Ok(())
-    }
-
     pub fn initialize_climax_controller(
         ctx: Context<InitializeClimaxController>,
         owners: Vec<Pubkey>,
@@ -250,8 +96,6 @@ pub mod climax_controller {
         let metadata = deser_metadata(&ctx.accounts.metaplex_metadata_pda, ctx.accounts.climax_controller.is_simulation)?;
         let creators_vec = metadata.data.creators.as_ref().unwrap();
         let creator_pubkey = ctx.accounts.climax_controller.candy_machine_id.to_string();
-        msg!("creators_vec: {:?}", creators_vec);
-        msg!("target creator pubkey: {:?}", creator_pubkey);
         if !creators_vec.iter().any(|c| (c.address.to_string() == creator_pubkey) && c.verified) {
             return Err(ErrorCode::InvalidCandyMachineId.into());
         }
@@ -276,10 +120,8 @@ pub mod climax_controller {
 
         // check if candymachine has reached threshold
         let threshold_reached = candy_machine.items_redeemed >= ctx.accounts.climax_controller.tipping_point_threshold;
-        msg!("threshold reached: {:?}", threshold_reached);
         let now_ts = Clock::get().unwrap().unix_timestamp;
         let mint_still_active = now_ts < ctx.accounts.climax_controller.end_timestamp as UnixTimestamp;
-        msg!("mint_still active: {:?}", mint_still_active);
         if threshold_reached || mint_still_active {
             return Err(ErrorCode::MintStillActiveOrSucceeded.into());
         }
@@ -438,46 +280,116 @@ pub mod climax_controller {
 
         Ok(())
     }
-}
 
-#[derive(Accounts)]
-pub struct TestLoadCandyMachine<'info> {
-    #[account(mut)]
-    pub signer: Signer<'info>,
-    pub candy_machine: AccountInfo<'info>,
-    pub system_program: Program<'info, System>,
-}
+    // The following instructions are for local testing purposes only
+    // Set climax_controller.is_simulation = true to use them in tests
+    pub fn simulate_create_candy_machine(
+        ctx: Context<SimulateCreateCandyMachine>
+    ) -> ProgramResult {
 
-#[derive(Accounts)]
-pub struct TestLoadMetadata<'info> {
-    #[account(mut)]
-    pub signer: Signer<'info>,
-    pub metadata: AccountInfo<'info>,
-    pub system_program: Program<'info, System>,
-}
+        // init candy machine struct
+        let data = CandyMachineData {
+            price: 1000000000,
+            ..Default::default()
+        };
+        let candy_machine = CandyMachine {
+            data,
+            authority: Pubkey::default(),
+            wallet: Pubkey::default(),
+            token_mint: None,
+            items_redeemed: 666,
+        };
+        let mut new_data: Vec<u8> = vec![51, 173, 177, 113, 25, 241, 109, 189]; // manually got discriminator, can also just hash("account:CandyMachine")[..8]
+        new_data.append(&mut candy_machine.try_to_vec().unwrap());
+        let space = new_data.len();
 
-#[derive(Accounts)]
-pub struct SimulateCreateCandyMachine<'info> {
-    #[account(mut)]
-    pub signer: Signer<'info>,
-    #[account(mut)]
-    pub candy_machine: Signer<'info>,
-    pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
-}
+        // create account
+        invoke(
+            &create_account(
+                ctx.accounts.signer.key,
+                ctx.accounts.candy_machine.key,
+                1.max(Rent::get()?.minimum_balance(space)),
+                space as u64,
+                &ID,
+            ),
+            &[
+                ctx.accounts.signer.to_account_info().clone(),
+                ctx.accounts.candy_machine.to_account_info().clone(),
+                ctx.accounts.system_program.to_account_info().clone(),
+            ],
+        )?;
 
-#[derive(Accounts)]
-pub struct SimulateCreateMetadata<'info> {
-    #[account(mut)]
-    pub signer: Signer<'info>,
-    #[account(mut)]
-    pub metadata: AccountInfo<'info>,
-    #[account(mut)]
-    pub nft_mint: Account<'info, Mint>,
-    pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
-}
+        // get account ref to fill in
+        let candy_machine_account = &mut ctx.accounts.candy_machine;
+        let mut data = candy_machine_account.data.borrow_mut();
+        for i in 0..new_data.len() {
+            data[i] = new_data[i];
+        }
 
+        Ok(())
+    }
+
+    pub fn simulate_create_metadata(
+        ctx: Context<SimulateCreateMetadata>,
+        candy_machine_id: Pubkey,
+    ) -> ProgramResult {
+
+        let space = spl_token_metadata::state::MAX_METADATA_LEN;
+
+        // lookup and verify pda info
+        let nft_mint = &ctx.accounts.nft_mint.key();
+        let metadata_program_id: Pubkey = ID;
+        let metadata_seeds = &[METADATA_PREFIX, metadata_program_id.as_ref(),nft_mint.as_ref()];
+        let (pda, bump_seed) = Pubkey::find_program_address(metadata_seeds, &metadata_program_id);
+        if pda != ctx.accounts.metadata.key() {
+            panic!("wrong pda addy");
+        }
+        let metadata_seeds = &[METADATA_PREFIX, metadata_program_id.as_ref(),nft_mint.as_ref(), &[bump_seed]];
+        let signer = &[&metadata_seeds[..]];
+
+        // create pda
+        invoke_signed(
+            &create_account(
+                ctx.accounts.signer.key,
+                &pda,
+                1.max(Rent::get()?.minimum_balance(space)),
+                space as u64,
+                &ID
+            ),
+            &[
+                ctx.accounts.signer.to_account_info().clone(),
+                ctx.accounts.metadata.to_account_info().clone(),
+                ctx.accounts.system_program.to_account_info().clone(),
+            ],
+            signer
+        )?;
+
+        let creator = spl_token_metadata::state::Creator {
+            address: candy_machine_id,
+            verified: true,
+            share: 1,
+        };
+        let creators = vec![creator];
+        let mut metadata = spl_token_metadata::state::Metadata::from_account_info(&ctx.accounts.metadata)?;
+        let data = spl_token_metadata::state::Data {
+            name: "".to_string(),
+            symbol: "".to_string(),
+            uri: "wutup gangsta mein".to_string(),
+            seller_fee_basis_points: 666,
+            creators: Some(creators),
+        };
+        metadata.mint = ctx.accounts.nft_mint.key();
+        metadata.key = spl_token_metadata::state::Key::MetadataV1;
+        metadata.data = data;
+        metadata.is_mutable = true;
+        metadata.update_authority = ctx.accounts.signer.key();
+
+        spl_token_metadata::utils::puff_out_data_fields(&mut metadata);
+        metadata.serialize(&mut *ctx.accounts.metadata.try_borrow_mut_data().unwrap())?;
+
+        Ok(())
+    }
+}
 
 #[derive(Accounts)]
 pub struct InitializeClimaxController<'info> {
@@ -530,7 +442,7 @@ pub struct RegisterNft<'info> {
     pub signer: Signer<'info>,
     #[account(mut)]
     pub climax_controller: Account<'info, ClimaxController>,
-    #[account(mut)]
+    #[account(mut)] // TODO add Token::authrity = signer constraint, should be redundant to mut but double check
     pub nft_mint: Account<'info, Mint>,
     #[account(
         init,
@@ -628,6 +540,28 @@ pub struct ExecuteMultisigWithdraw<'info> {
     pub candy_machine: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct SimulateCreateCandyMachine<'info> {
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    #[account(mut)]
+    pub candy_machine: Signer<'info>,
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+pub struct SimulateCreateMetadata<'info> {
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    #[account(mut)]
+    pub metadata: AccountInfo<'info>,
+    #[account(mut)]
+    pub nft_mint: Account<'info, Mint>,
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
 }
 
 pub const MAX_CLIMAX_CONTROLLER_LEN: usize = 9 // discriminator + 1?
@@ -742,4 +676,3 @@ pub enum ErrorCode {
     #[msg("Mint threshold not reached")]
     MintThresholdNotReached,
 }
-
