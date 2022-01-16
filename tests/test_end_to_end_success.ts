@@ -30,13 +30,17 @@ let user_pda = null;
 let mintA = null;
 let pool_wrapped_sol = null;
 
-describe("test tipping point failure end-to-end", () => {
+describe("test tipping point success end-to-end", () => {
 
     it("Setup accounts", async () => {
 
         // Airdropping tokens to a payer.
         await provider.connection.confirmTransaction(
             await provider.connection.requestAirdrop(owner1.publicKey, to_lamports(10)),
+            "confirmed"
+        );
+        await provider.connection.confirmTransaction(
+            await provider.connection.requestAirdrop(owner2.publicKey, to_lamports(10)),
             "confirmed"
         );
 
@@ -73,10 +77,10 @@ describe("test tipping point failure end-to-end", () => {
     it("Test Initialize climax controller", async () => {
 
         let owners = [owner1.publicKey, owner2.publicKey, owner3.publicKey];
-        let signer_threshold = 3;
-        let tipping_point_threshold = 1000;
-        let yesterday = Math.floor(Date.now() / 1000) - (60 * 60 * 24); // unix timestamp seconds
-        let end_timestamp = yesterday;
+        let signer_threshold = 2;
+        let tipping_point_threshold = 1;
+        let tomorrow = Math.floor(Date.now() / 1000) + (60 * 60 * 24); // unix timestamp seconds
+        let end_timestamp = tomorrow;
         let is_simulation = true;
 
         await program.rpc.initializeClimaxController(
@@ -221,20 +225,20 @@ describe("test tipping point failure end-to-end", () => {
         );
     });
 
+    it("Propose withdraw", async () => {
 
-    it("Test execute withdraw", async () => {
+        // lookup amount in pool pda
+        let proposed_amount = 1;
 
-        await program.rpc.executeUserWithdraw(
+        await program.rpc.proposeMultisigWithdraw(
+            new anchor.BN(to_lamports(proposed_amount)),
+            wrapped_sol_ata,
             {
                 accounts: {
                     signer: owner1.publicKey,
                     climaxController: climax_controller.publicKey,
-                    authPda: auth_pda,
                     poolWrappedSol: pool_wrapped_sol,
-                    userMetadataPda: user_pda,
-                    wsolMint: WRAPPED_SOL_MINT,
-                    proposedReceiver: wrapped_sol_ata,
-                    candyMachine: candy_machine.publicKey,
+                    wsolMint: NATIVE_MINT,
                     systemProgram: SystemProgram.programId,
                     tokenProgram: TOKEN_PROGRAM_ID,
                 },
@@ -242,6 +246,65 @@ describe("test tipping point failure end-to-end", () => {
             }
         );
 
+        // load PDA state
+        // let climaxControllerInfo = await program.account.climaxController.fetch(climax_controller.publicKey);
+        // console.log("got auth pda info: ", climaxControllerInfo);
+    });
+
+    it("Approve withdraw", async () => {
+
+        // lookup amount in pool pda
+        let proposed_amount = 1;
+
+        await program.rpc.approveMultisigWithdraw(
+            new anchor.BN(to_lamports(proposed_amount)),
+            wrapped_sol_ata,
+            {
+                accounts: {
+                    signer: owner1.publicKey,
+                    climaxController: climax_controller.publicKey,
+                    systemProgram: SystemProgram.programId,
+                },
+                signers: [owner1],
+            }
+        );
+
+        await program.rpc.approveMultisigWithdraw(
+            new anchor.BN(to_lamports(proposed_amount)),
+            wrapped_sol_ata,
+            {
+                accounts: {
+                    signer: owner2.publicKey,
+                    climaxController: climax_controller.publicKey,
+                    systemProgram: SystemProgram.programId,
+                },
+                signers: [owner2],
+            }
+        );
+
+        // load PDA state
+        // let climaxControllerInfo = await program.account.climaxController.fetch(climax_controller.publicKey);
+        // console.log("got auth pda info: ", climaxControllerInfo);
+    });
+
+    it("Test execute multisig withdraw", async () => {
+
+        await program.rpc.executeMultisigWithdraw(
+            {
+                accounts: {
+                    signer: owner1.publicKey,
+                    climaxController: climax_controller.publicKey,
+                    poolWrappedSol: pool_wrapped_sol,
+                    proposedReceiver: wrapped_sol_ata,
+                    authPda: auth_pda,
+                    wsolMint: WRAPPED_SOL_MINT,
+                    candyMachine: candy_machine.publicKey,
+                    systemProgram: SystemProgram.programId,
+                    tokenProgram: TOKEN_PROGRAM_ID,
+                },
+                signers: [owner1],
+            }
+        );
     });
 });
 
