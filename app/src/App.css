@@ -1,0 +1,325 @@
+:root {
+   --primary-color: #f2d6b3;
+   --secondary-color: #d98452;
+   --black: #000;
+   --dark-purple: #333259;
+   --white: #fff;
+   --green: #038c7f;
+
+   /* font sizes */
+   --fs-900: 9.375rem;
+   --fs-800: 6.25rem;
+   --fs-700: 3.5rem;
+   --fs-600: 2rem;
+   --fs-500: 1.75rem;
+   --fs-400: 1.125rem;
+   --fs-300: 1rem;
+   --fs-200: 0.875rem;
+
+   /* font-families */
+   --ff-sans: 'Pattaya', sans-serif;
+   --ff-sans-normal: 'Inter', sans-serif;
+}
+
+/* Typography */
+
+.ff-sans {
+   font-family: var(--ff-sans);
+}
+.ff-sans-normal {
+   font-family: var(--ff-sans-normal);
+}
+
+.letter-spacing-1 {
+   letter-spacing: 4.75px;
+}
+.letter-spacing-2 {
+   letter-spacing: 2.7px;
+}
+.letter-spacing-3 {
+   letter-spacing: 2.35px;
+}
+
+.uppercase {
+   text-transform: uppercase;
+}
+
+.fs-900 {
+   font-size: var(--fs-900);
+}
+.fs-800 {
+   font-size: var(--fs-800);
+}
+.fs-700 {
+   font-size: var(--fs-700);
+}
+.fs-600 {
+   font-size: var(--fs-600);
+}
+.fs-500 {
+   font-size: var(--fs-500);
+}
+.fs-400 {
+   font-size: var(--fs-400);
+}
+.fs-300 {
+   font-size: var(--fs-300);
+}
+.fs-200 {
+   font-size: var(--fs-200);
+}
+
+.fs-900,
+.fs-800,
+.fs-700,
+.fs-600 {
+   line-height: 1.1;
+}
+
+/* Reset */
+
+*,
+*::before,
+*::after {
+   box-sizing: border-box;
+}
+
+body,
+h1,
+h2,
+h3,
+h4,
+h5,
+p,
+figure,
+picture {
+   margin: 0;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+   font-weight: 400;
+}
+
+img {
+   width: 100%;
+}
+
+body {
+   font-family: var(--ff-sans-normal);
+   font-size: var(--fs-400);
+}
+
+/* Utility classes */
+.flex {
+   display: flex;
+}
+
+.bold {
+   font-weight: bold;
+}
+
+.flex-col {
+   flex-direction: column;
+}
+
+.container {
+   padding-inline: 2em;
+   max-width: 95rem;
+   margin-inline: auto;
+   margin-top: 4em;
+}
+
+.flex-container {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   gap: 3em;
+}
+
+/* Components */
+.header {
+   background-color: var(--secondary-color);
+   padding: 0.7em 2em;
+   color: var(--primary-color);
+   text-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
+}
+
+.main {
+   background-color: var(--dark-purple);
+   min-height: 120vh;
+}
+
+.nav {
+}
+
+.nav-main {
+   margin-top: -2em;
+}
+
+.nav p {
+   color: var(--white);
+}
+
+.nav small {
+   font-weight: bold;
+   font-size: 0.65em;
+   color: var(--primary-color);
+}
+
+.connect-wallet {
+   margin-top: 2em;
+   display: flex;
+   justify-content: center;
+}
+
+.stake-card {
+   background-color: var(--primary-color);
+   width: 100%;
+   padding: 1rem;
+   border-radius: 0.5rem;
+   margin-top: -2em;
+   box-shadow: rgba(0, 0, 0, 0.1) 0px 5px 5px -1px,
+      rgba(0, 0, 0, 0.06) 0px 2px 4px -1px;
+}
+.stake-card-header {
+   color: var(--secondary-color);
+}
+
+.stake-card-header > small {
+   position: relative;
+   top: -0.75em;
+   opacity: 0.5;
+}
+
+.stake-card-content {
+   width: 100%;
+   background-color: var(--secondary-color);
+   border-radius: 0.5rem;
+   padding: 1rem;
+   color: var(--dark-purple);
+   box-shadow: rgba(0, 0, 0, 0.1) 0px 5px 5px -1px,
+      rgba(0, 0, 0, 0.06) 0px 2px 4px -1px;
+}
+
+.stake-card-content-section {
+   justify-content: space-between;
+   text-align: center;
+}
+
+.stake-card-NFT,
+.stake-card-amount {
+   padding: 0.5rem;
+   width: 45%;
+   gap: 2em;
+}
+
+.NFT-heading,
+.amount-heading {
+   font-size: larger;
+   text-align: center;
+   margin-bottom: 1em;
+}
+
+.stake-card-NFT-form > label {
+   align-self: flex-start;
+}
+.stake-card-NFT-form > input {
+   padding: 0.2em 0;
+   outline: none;
+   font-size: var(--fs-400);
+}
+
+.stake-card-amount-form > label {
+   align-self: flex-start;
+}
+
+.stake-card-amount-form > input {
+   padding: 0.2em 0;
+   outline: none;
+   font-size: var(--fs-400);
+}
+
+.stake-card-content-button {
+   width: 100%;
+   padding: 0.4em 0;
+   margin-top: 1em;
+}
+
+.stake-button {
+   border: none;
+   border-radius: 0.5rem;
+   background-color: var(--green);
+   width: 100%;
+   font-size: var(--fs-500);
+   color: var(--primary-color);
+   cursor: pointer;
+   text-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
+   box-shadow: rgba(0, 0, 0, 0.1) 0px 5px 5px -1px,
+      rgba(0, 0, 0, 0.06) 0px 2px 4px -1px;
+}
+
+.connect-wallet-button {
+   border: none;
+   border-radius: 0.5rem;
+   background-color: var(--green);
+   font-size: var(--fs-500);
+   color: var(--primary-color);
+   padding: 0.35em 0.75em;
+   cursor: pointer;
+   text-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
+   box-shadow: rgba(0, 0, 0, 0.1) 0px 5px 5px -1px,
+      rgba(0, 0, 0, 0.06) 0px 2px 4px -1px;
+}
+
+.claim-button {
+   background-color: var(--green);
+   border: none;
+   border-radius: 100%;
+   aspect-ratio: 1;
+   padding: 0 0.5em;
+   color: var(--primary-color);
+   font-size: var(--fs-400);
+   text-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
+   cursor: pointer;
+}
+
+.image-container {
+   margin-top: 0.5em;
+   display: grid;
+   grid-template-columns: repeat(6, 1fr);
+   grid-column-gap: 10px;
+   grid-row-gap: 10px;
+}
+
+.image-token {
+   height: 100px;
+   width: 90px;
+   object-fit: cover;
+   border: 0.5px solid black;
+   background-color: var(--white);
+   cursor: pointer;
+}
+
+.image-token > img {
+   height: 98px;
+}
+
+.token-stake-card {
+   background-color: var(--primary-color);
+   width: 100%;
+   padding: 1rem;
+   border-radius: 0.5rem;
+   margin-top: -2em;
+   box-shadow: rgba(0, 0, 0, 0.1) 0px 5px 5px -1px,
+      rgba(0, 0, 0, 0.06) 0px 2px 4px -1px;
+}
+
+.token-stake-card > h4 {
+   text-align: center;
+   color: var(--secondary-color);
+}

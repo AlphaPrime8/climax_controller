@@ -1,0 +1,277 @@
+{
+  "version": "0.0.0",
+  "name": "dao_multisig_treasury",
+  "instructions": [
+    {
+      "name": "initPdas",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "authPda",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "poolWrappedSol",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "wsolMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "rent",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "owners",
+          "type": {
+            "vec": "publicKey"
+          }
+        },
+        {
+          "name": "isOfficer",
+          "type": {
+            "vec": "bool"
+          }
+        },
+        {
+          "name": "totalThreshold",
+          "type": "u64"
+        },
+        {
+          "name": "officerThreshold",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "proposeWithdraw",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "authPda",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "poolWrappedSol",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "proposedReceiver",
+          "type": "publicKey"
+        },
+        {
+          "name": "proposedAmount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "approveWithdraw",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "authPda",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "proposedReceiver",
+          "type": "publicKey"
+        },
+        {
+          "name": "proposedAmount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "executeWithdraw",
+      "accounts": [
+        {
+          "name": "signer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "authPda",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "poolWrappedSol",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "proposedReceiver",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "wsolMint",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "MultisigAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owners",
+            "type": {
+              "vec": "publicKey"
+            }
+          },
+          {
+            "name": "isOfficer",
+            "type": {
+              "vec": "bool"
+            }
+          },
+          {
+            "name": "totalThreshold",
+            "type": "u64"
+          },
+          {
+            "name": "officerThreshold",
+            "type": "u64"
+          },
+          {
+            "name": "proposedReceiver",
+            "type": "publicKey"
+          },
+          {
+            "name": "proposedAmount",
+            "type": "u64"
+          },
+          {
+            "name": "signers",
+            "type": {
+              "vec": "bool"
+            }
+          },
+          {
+            "name": "proposalIsActive",
+            "type": "bool"
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    {
+      "code": 300,
+      "name": "TooManyOwners",
+      "msg": "Num owners exceeds max"
+    },
+    {
+      "code": 301,
+      "name": "NotEnoughOfficerSigners",
+      "msg": "Not enough officer signers"
+    },
+    {
+      "code": 302,
+      "name": "NotEnoughTotalSigners",
+      "msg": "Not enough total signers"
+    },
+    {
+      "code": 303,
+      "name": "ProposalInactive",
+      "msg": "Proposal is not active"
+    },
+    {
+      "code": 304,
+      "name": "ProposalMismatch",
+      "msg": "Proposal parameters do not match expected"
+    },
+    {
+      "code": 305,
+      "name": "InsufficientBalance",
+      "msg": "Insufficient balance"
+    },
+    {
+      "code": 306,
+      "name": "InvalidAuthPda",
+      "msg": "Invalid auth pda"
+    },
+    {
+      "code": 307,
+      "name": "InvalidOwner",
+      "msg": "The given owner is not part of this multisig"
+    },
+    {
+      "code": 308,
+      "name": "InvalidVectorLengths",
+      "msg": "Owners vec and is_officer vec must be same length"
+    }
+  ],
+  "metadata": {
+    "address": "8tk9cckc1aVcDS9JYEg5EQxHPmDzrLnNFRAYFRJYLi5T"
+  }
+}
