@@ -1,10 +1,10 @@
 import React from 'react';
 
-const ExecuteCard = ({ signersHaveApproved, executeWithdraw }) => {
+const ExecuteMultisigWithdrawCard = ({ signersHaveApproved, executeWithdraw }) => {
    return (
       <div className='stake-card'>
          <div className='stake-card-header'>
-            <h2 className='ff-sans bold letter-spacing-3'>Execute Withdraw</h2>
+            <h2 className='ff-sans bold letter-spacing-3'>Execute Multisig Withdraw</h2>
          </div>
          <div className='stake-card-content'>
 
@@ -22,4 +22,4 @@ const ExecuteCard = ({ signersHaveApproved, executeWithdraw }) => {
    );
 };
 
-export default ExecuteCard;
+export default ExecuteMultisigWithdrawCard;

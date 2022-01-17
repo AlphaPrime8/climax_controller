@@ -1,14 +1,17 @@
 import React from 'react';
-import Header from './Header';
-
-import StakeCard from './StakeCard';
-import UnstakeCard from './UnstakeCard';
-import ConnectWalletButton from './ConnectWallet';
-import ApproveCard from "./ApproveCard";
-import ProposeCard from "./ProposeCard";
-
-import * as anchor from '@project-serum/anchor';
+import {EXPECTED_CREATOR, VAULT_PDA_SEED, PEACH_EARNED_PER_SECOND, SECONDS_PER_DAY, USER_PDA_SEED, AUTH_PDA_SEED, WSOL_POOL_SEED, DEFAULT_MULTISIG_STATE} from "./Config";
 import './App.css';
+
+// react components
+import Header from './Header';
+import ConnectWalletButton from './ConnectWallet';
+import UserWithdrawCard from "./components/UserWithdrawCard";
+import ExecuteMultisigWithdrawCard from "./components/ExecuteMultisigWithdrawCard";
+import MultisigStateCard from "./components/MultisigStateCard";
+import ProposeMultisigWithdrawCard from "./components/ProposeMultisigWithdrawCard";
+
+// web3 dependencies
+import * as anchor from '@project-serum/anchor';
 import { useState } from 'react';
 import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import { Provider, web3 } from '@project-serum/anchor';
@@ -16,16 +19,13 @@ import idl from './idl.json';
 import { getPhantomWallet } from '@solana/wallet-adapter-wallets';
 import {WalletProvider, ConnectionProvider} from '@solana/wallet-adapter-react';
 import {WalletModalProvider} from '@solana/wallet-adapter-react-ui';
-import {EXPECTED_CREATOR, VAULT_PDA_SEED, PEACH_EARNED_PER_SECOND, SECONDS_PER_DAY, USER_PDA_SEED, AUTH_PDA_SEED, WSOL_POOL_SEED, DEFAULT_MULTISIG_STATE} from "./Config";
 import {NATIVE_MINT, Token} from "@solana/spl-token";
 import {TOKEN_PROGRAM_ID} from "@project-serum/serum/lib/token-instructions";
-import ExecuteCard from "./ExecuteCard";
 import {to_lamports, to_sol} from "./utils";
-
-
 require('@solana/wallet-adapter-react-ui/styles.css');
 const metaplex = require('@metaplex/js');
 const spl_token = require('@solana/spl-token');
+
 
 // setup
 const wallets = [getPhantomWallet()];
@@ -576,15 +576,19 @@ function App() {
                      />
 
                      <div className='container flex-container'>
-                        <ApproveCard
+                        <MultisigStateCard
                             approveWithdraw={approveWithdraw}
                             multisigState={multisigState}
+                        />
+                        <UserWithdrawCard
+                           approveWithdraw={approveWithdraw}
+                           multisigState={multisigState}
                         />
                      </div>
 
                      <div className='container flex-container'>
-                        <ProposeCard proposeWithdraw={proposeWithdraw} />
-                        <ExecuteCard signersHaveApproved={signersHaveApproved} executeWithdraw={executeWithdraw} />
+                        <ProposeMultisigWithdrawCard proposeWithdraw={proposeWithdraw} />
+                        <ExecuteMultisigWithdrawCard signersHaveApproved={signersHaveApproved} executeWithdraw={executeWithdraw} />
                      </div>
 
 

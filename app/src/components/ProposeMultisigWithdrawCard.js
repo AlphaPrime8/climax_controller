@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 
-const ProposeCard = ({ proposeWithdraw }) => {
+const ProposeMultisigWithdrawCard = ({ proposeWithdraw }) => {
 
    const [inputAmount, setInputAmount] = useState('');
    const [inputReceiver, setInputReceiver] = useState('');
@@ -13,7 +13,7 @@ const ProposeCard = ({ proposeWithdraw }) => {
    return (
       <div className='stake-card'>
          <div className='stake-card-header'>
-            <h2 className='ff-sans bold letter-spacing-3'>Propose Withdraw</h2>
+            <h2 className='ff-sans bold letter-spacing-3'>Propose Multisig Withdraw</h2>
             {/* <small className='stake-description'>
                Description of how much you can make per day staking
             </small> */}
@@ -46,4 +46,4 @@ const ProposeCard = ({ proposeWithdraw }) => {
    );
 };
 
-export default ProposeCard;
+export default ProposeMultisigWithdrawCard;
