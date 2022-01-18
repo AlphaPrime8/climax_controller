@@ -1,7 +1,7 @@
 import React from 'react';
 import {to_sol} from "../utils";
 
-const MultisigStateCard = ({ approveWithdraw, multisigState }) => {
+const MultisigStateCard = ({ approveMultisigWithdraw, climaxControllerState }) => {
    return (
       <div className='stake-card'>
          <div className='stake-card-header'>
@@ -13,18 +13,18 @@ const MultisigStateCard = ({ approveWithdraw, multisigState }) => {
                   <h3 className='bold NFT-heading'>Multisig Config</h3>
                   {/*MULTISIG CONFIGURATION HERE*/}
                   <div>
-                     <p >Treasury Balance: {to_sol(multisigState.treasury_balance)} SOL</p>
-                     <p >Signers Required: {multisigState.total_threshold}</p>
-                     <p >Tipping point Threshold : {multisigState.total_threshold}</p>
-                     <p >Current Mint State : {multisigState.total_threshold}</p>
-                     <p >Hours till close : {"false"}</p>
-                     <p>Withdraws are open: {multisigState.proposal_is_active.toString()}</p>
+                     <p >Treasury Balance: {to_sol(climaxControllerState.treasury_balance)} SOL</p>
+                     <p >Signers Required: {climaxControllerState.signer_threshold}</p>
+                     <p >Tipping point Threshold : {climaxControllerState.tipping_point_threshold}</p>
+                     <p >Current Mint State : {climaxControllerState.current_mint_state}</p>
+                     <p >Hours till close : {climaxControllerState.hours_till_close.toFixed(2)}</p>
+                     <p>Withdraws are open: {climaxControllerState.multisig_withdraws_open.toString()}</p>
                   </div>
-                  {multisigState.owners_arr.map(function(pubkey, index){
+                  {climaxControllerState.owners_arr.map(function(pubkey, index){
                      return (
-                         <div>
+                         <div key={index}>
                             <p>{pubkey}</p>
-                            <p>has approved: {multisigState.signers_arr[index].toString()}</p>
+                            <p>has approved: {climaxControllerState.signers_arr[index].toString()}</p>
                          </div>);
                   })}
                </div>
@@ -32,14 +32,14 @@ const MultisigStateCard = ({ approveWithdraw, multisigState }) => {
                   {/*PROPOSAL PARAMETERS HERE*/}
                   <h3 className='bold NFT-heading'>Withdraw Proposal</h3>
                   <div>
-                     <p>Proposal is active: {multisigState.proposal_is_active.toString()}</p>
-                     <p>Proposed Receiver: {multisigState.proposed_receiver}</p>
-                     <p>Proposed Amount: {to_sol(multisigState.proposed_amount)} SOL</p>
+                     <p>Proposal is active: {climaxControllerState.proposal_is_active.toString()}</p>
+                     <p>Proposed Receiver: {climaxControllerState.proposed_receiver.toString()}</p>
+                     <p>Proposed Amount: {to_sol(climaxControllerState.proposed_amount)} SOL</p>
                   </div>
                </div>
             </div>
             <div className='stake-card-content-button'>
-               <button onClick={approveWithdraw} className='stake-button ff-sans'>
+               <button onClick={approveMultisigWithdraw} className='stake-button ff-sans'>
                   Approve Withdraw Proposal
                </button>
             </div>

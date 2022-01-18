@@ -1,13 +1,13 @@
 import React, {useState} from 'react';
 
-const ProposeMultisigWithdrawCard = ({ proposeWithdraw }) => {
+const ProposeMultisigWithdrawCard = ({ proposeMultisigWithdraw }) => {
 
    const [inputAmount, setInputAmount] = useState('');
    const [inputReceiver, setInputReceiver] = useState('');
 
    function proposeCallback(){
       // get input values
-      proposeWithdraw(parseFloat(inputAmount), inputReceiver);
+      proposeMultisigWithdraw(parseFloat(inputAmount), inputReceiver);
    }
 
    return (

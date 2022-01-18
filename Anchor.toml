@@ -1,13 +1,13 @@
 [programs.localnet]
-climax_controller = "3pqVVuz8ghE5LT4Z26xjPi17qqXLartUra8yMkABCeEG"
+climax_controller = "4c5pK4aj8vUnnSgH7bmm1yXBjU9ANNCmGk1wG24uVrYp"
 
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
 #cluster = "testnet"
-#cluster = "devnet"
-cluster = "localnet"
+cluster = "devnet"
+#cluster = "localnet"
 wallet = "/home/myware/.config/solana/mainnet.json"
 
 [scripts]

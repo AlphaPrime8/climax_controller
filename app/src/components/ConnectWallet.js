@@ -4,7 +4,7 @@ import Loader from "react-loader-spinner";
 require('@solana/wallet-adapter-react-ui/styles.css');
 
 const ConnectWalletButton = ({
-                                 loadMultisigState,
+                                 loadClimaxControllerState,
                                  isLoading,
                              }) => {
     if (isLoading){
@@ -26,7 +26,7 @@ const ConnectWalletButton = ({
         return (
             <div className='App'>
                 <div className='connect-wallet'>
-                    <button className='connect-wallet-button ff-sans' onClick={loadMultisigState}>Refresh</button>
+                    <button className='connect-wallet-button ff-sans' onClick={loadClimaxControllerState}>Refresh</button>
                 </div>
             </div>
         );

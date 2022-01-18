@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ExecuteMultisigWithdrawCard = ({ signersHaveApproved, executeWithdraw }) => {
+const ExecuteMultisigWithdrawCard = ({ climaxControllerState, executeMultisigWithdraw }) => {
    return (
       <div className='stake-card'>
          <div className='stake-card-header'>
@@ -9,11 +9,11 @@ const ExecuteMultisigWithdrawCard = ({ signersHaveApproved, executeWithdraw }) =
          <div className='stake-card-content'>
 
             <div className='stake-card-content-section flex'>
-                  <p>Sufficient signers have approved: {signersHaveApproved.toString()}</p>
+                  <p>Sufficient signers have approved: {climaxControllerState.sufficient_signers_have_approved.toString()}</p>
             </div>
 
             <div className='stake-card-content-button'>
-               <button onClick={executeWithdraw} className='stake-button ff-sans'>
+               <button onClick={executeMultisigWithdraw} className='stake-button ff-sans'>
                   Execute
                </button>
             </div>

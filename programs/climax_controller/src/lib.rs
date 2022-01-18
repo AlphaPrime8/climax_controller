@@ -6,7 +6,7 @@ use solana_program::program::{invoke, invoke_signed};
 use solana_program::system_instruction::create_account;
 use spl_token::solana_program::clock::UnixTimestamp;
 
-declare_id!("3pqVVuz8ghE5LT4Z26xjPi17qqXLartUra8yMkABCeEG");
+declare_id!("4c5pK4aj8vUnnSgH7bmm1yXBjU9ANNCmGk1wG24uVrYp");
 
 // config
 const TOKEN_ACCOUNT_PDA_SEED: &[u8] = b"token_account_pda_seed";

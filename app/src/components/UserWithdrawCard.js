@@ -1,7 +1,7 @@
 import React from 'react';
 import {to_sol} from "../utils";
 
-const UserWithdrawCard = ({ approveWithdraw, multisigState }) => {
+const UserWithdrawCard = ({ executeUserWithdraw, climaxControllerState }) => {
    return (
       <div className='stake-card'>
          <div className='stake-card-header'>
@@ -14,17 +14,23 @@ const UserWithdrawCard = ({ approveWithdraw, multisigState }) => {
                   <h3 className='bold NFT-heading'>User State</h3>
                   {/*MULTISIG CONFIGURATION HERE*/}
                   <div>
-                     <p>User withdraws open: {multisigState.officer_threshold}</p>
-                     <p>User Addy: {to_sol(multisigState.treasury_balance)} </p>
-                     <p>User funds paid: {to_sol(multisigState.treasury_balance)} SOL</p>
-                     <p>User funds withdrawn: {multisigState.total_threshold}</p>
-                     <p>User funds eligible to withdraw: {multisigState.total_threshold}</p>
+                     <p>User withdraws open: {climaxControllerState.user_withdraws_open.toString()}</p>
+                     <p>User Addy: {to_sol(climaxControllerState.user_addy)} </p>
+                  </div>
+               </div>
+               <div className='stake-card-NFT flex flex-col'>
+                  <h3 className='bold NFT-heading'>Funds Data</h3>
+                  {/*MULTISIG CONFIGURATION HERE*/}
+                  <div>
+                     <p>User funds paid: {to_sol(climaxControllerState.user_funds_paid)} SOL</p>
+                     <p>User funds withdrawn: {climaxControllerState.user_funds_withdrawn} SOL</p>
+                     <p>User funds eligible to withdraw: {climaxControllerState.user_funds_paid - climaxControllerState.user_funds_withdrawn} SOL</p>
                   </div>
                </div>
 
             </div>
             <div className='stake-card-content-button'>
-               <button onClick={approveWithdraw} className='stake-button ff-sans'>
+               <button onClick={executeUserWithdraw} className='stake-button ff-sans'>
                   Withdraw
                </button>
             </div>
