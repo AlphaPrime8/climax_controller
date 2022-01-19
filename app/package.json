@@ -4,7 +4,7 @@
   "private": true,
   "dependencies": {
     "@metaplex/js": "^4.7.0",
-    "@project-serum/anchor": "^0.18.2",
+    "@project-serum/anchor": "^0.17.0",
     "@project-serum/serum": "^0.13.61",
     "@solana/wallet-adapter-base": "^0.7.0",
     "@solana/wallet-adapter-react": "^0.13.1",

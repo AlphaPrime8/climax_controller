@@ -6,7 +6,7 @@ use solana_program::program::{invoke, invoke_signed};
 use solana_program::system_instruction::create_account;
 use spl_token::solana_program::clock::UnixTimestamp;
 
-declare_id!("4c5pK4aj8vUnnSgH7bmm1yXBjU9ANNCmGk1wG24uVrYp");
+declare_id!("EV4PDhhYJNQbGHiecjtXy22fEuL9N5b6MfaR68jbBcpk");
 
 // config
 const TOKEN_ACCOUNT_PDA_SEED: &[u8] = b"token_account_pda_seed";
@@ -14,6 +14,7 @@ const NFT_PDA_SEED: &[u8] = b"nft_registration_pda_seed";
 const USER_PDA_SEED: &[u8] = b"user_pda_seed";
 const AUTH_PDA_SEED: &[u8] = b"auth_pda_seed";
 const METADATA_PREFIX: &[u8] = b"metadata";
+const CANDY_MACHINE_CREATOR_SEED: &[u8] = b"candy_machine";
 const MAX_OWNERS: usize = 10;
 
 #[program]
@@ -71,6 +72,7 @@ pub mod climax_controller {
 
         // check that (num_registered + 1) is <= num_minted in candy_machine
         let candy_machine = deser_candy_machine(&ctx.accounts.candy_machine, ctx.accounts.climax_controller.is_simulation)?;
+
         if (ctx.accounts.climax_controller.num_registered + 1) > candy_machine.items_redeemed {
             return Err(ErrorCode::TooManyRegistrations.into());
         }
@@ -81,6 +83,7 @@ pub mod climax_controller {
         } else {
             spl_token_metadata::ID
         };
+
         let nft_mint = &ctx.accounts.nft_mint.key();
         let metadata_seeds = &[
             METADATA_PREFIX,
@@ -92,13 +95,24 @@ pub mod climax_controller {
             return Err(ErrorCode::InvalidMetaplexMetadataPda.into());
         }
 
+        // get candy machine creator address
+        let candy_machine_creator_seeds = &[
+            CANDY_MACHINE_CREATOR_SEED,
+            ctx.accounts.climax_controller.candy_machine_id.as_ref(),
+        ];
+        let (candy_machine_creator, _bump) = Pubkey::find_program_address(candy_machine_creator_seeds, &nft_candy_machine::ID);
+        msg!("got candy machine creator: {:?}", candy_machine_creator.to_string());
+
         // verify that our candy_machine_id is a verified creator in metaplex metadata pda
         let metadata = deser_metadata(&ctx.accounts.metaplex_metadata_pda, ctx.accounts.climax_controller.is_simulation)?;
         let creators_vec = metadata.data.creators.as_ref().unwrap();
-        let creator_pubkey = ctx.accounts.climax_controller.candy_machine_id.to_string();
+        let creator_pubkey = candy_machine_creator.to_string();
+        msg!("got creators vec: {:?}", creators_vec);
+        msg!("got creator pubkey: {:?}", creator_pubkey);
         if !creators_vec.iter().any(|c| (c.address.to_string() == creator_pubkey) && c.verified) {
             return Err(ErrorCode::InvalidCandyMachineId.into());
         }
+        msg!("creators check passed...");
 
         // initialize nft pda
         ctx.accounts.nft_metadata_pda.candy_machine_id = ctx.accounts.climax_controller.candy_machine_id;
@@ -425,7 +439,7 @@ pub struct InitializeClimaxController<'info> {
 pub struct InitUserMetadataPda<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
-    #[account(mut)]
+    #[account(mut)] // TODO is this really mutable? i guess it program owned so sure, we're not changing it anyways...
     pub climax_controller: Account<'info, ClimaxController>,
     #[account(
         init,
@@ -616,7 +630,7 @@ pub struct UserMetadata {
 
 // utils
 pub fn deser_metadata(info: &AccountInfo, is_simulation: bool) -> core::result::Result<spl_token_metadata::state::Metadata, ProgramError> {
-    check_owner(info, is_simulation)?;
+    check_owner(info, is_simulation, true)?;
     let data: &[u8] = &info.try_borrow_data()?;
     let md = spl_token_metadata::utils::try_from_slice_checked(
         data,
@@ -626,18 +640,22 @@ pub fn deser_metadata(info: &AccountInfo, is_simulation: bool) -> core::result::
 }
 
 pub fn deser_candy_machine(info: &AccountInfo, is_simulation: bool) -> core::result::Result<CandyMachine, ProgramError> {
-    check_owner(info, is_simulation)?;
+    check_owner(info, is_simulation, false)?;
     let mut data: &[u8] = &info.try_borrow_data()?;
     let cm = CandyMachine::try_deserialize(&mut data)?;
     Ok(cm)
 }
 
-pub fn check_owner(info: &AccountInfo, is_simulation: bool) -> ProgramResult {
+pub fn check_owner(info: &AccountInfo, is_simulation: bool, is_metadata: bool) -> ProgramResult {
     let actual_owner = *info.owner;
     let expected_owner = if is_simulation {
         ID
     } else {
-        spl_token_metadata::ID
+        if is_metadata {
+            spl_token_metadata::ID
+        } else {
+            nft_candy_machine::ID
+        }
     };
     if actual_owner != expected_owner {
         return Err(ErrorCode::TooManyOwners.into());

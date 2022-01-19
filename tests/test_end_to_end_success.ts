@@ -15,7 +15,7 @@ const NFT_PDA_SEED = "nft_registration_pda_seed";
 // load connection params
 const provider = anchor.Provider.env();
 anchor.setProvider(provider);
-const program = anchor.workspace.ClimaxController as Program<ClimaxController>;
+const program = anchor.workspace.ClimaxController as Program;
 
 // account variables
 let wrapped_sol_ata: PublicKey = null;
