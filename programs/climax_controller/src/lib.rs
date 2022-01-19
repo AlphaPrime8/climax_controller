@@ -96,23 +96,23 @@ pub mod climax_controller {
         }
 
         // get candy machine creator address
-        let candy_machine_creator_seeds = &[
-            CANDY_MACHINE_CREATOR_SEED,
-            ctx.accounts.climax_controller.candy_machine_id.as_ref(),
-        ];
-        let (candy_machine_creator, _bump) = Pubkey::find_program_address(candy_machine_creator_seeds, &nft_candy_machine::ID);
-        msg!("got candy machine creator: {:?}", candy_machine_creator.to_string());
+        let creator_pubkey = if ctx.accounts.climax_controller.is_simulation {
+            ctx.accounts.climax_controller.candy_machine_id.to_string()
+        } else {
+            let candy_machine_creator_seeds = &[
+                CANDY_MACHINE_CREATOR_SEED,
+                ctx.accounts.climax_controller.candy_machine_id.as_ref(),
+            ];
+            let (candy_machine_creator, _bump) = Pubkey::find_program_address(candy_machine_creator_seeds, &nft_candy_machine::ID);
+            candy_machine_creator.to_string()
+        };
 
         // verify that our candy_machine_id is a verified creator in metaplex metadata pda
         let metadata = deser_metadata(&ctx.accounts.metaplex_metadata_pda, ctx.accounts.climax_controller.is_simulation)?;
         let creators_vec = metadata.data.creators.as_ref().unwrap();
-        let creator_pubkey = candy_machine_creator.to_string();
-        msg!("got creators vec: {:?}", creators_vec);
-        msg!("got creator pubkey: {:?}", creator_pubkey);
         if !creators_vec.iter().any(|c| (c.address.to_string() == creator_pubkey) && c.verified) {
             return Err(ErrorCode::InvalidCandyMachineId.into());
         }
-        msg!("creators check passed...");
 
         // initialize nft pda
         ctx.accounts.nft_metadata_pda.candy_machine_id = ctx.accounts.climax_controller.candy_machine_id;
