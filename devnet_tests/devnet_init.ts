@@ -7,14 +7,16 @@ import {NATIVE_MINT, TOKEN_PROGRAM_ID, Token, ASSOCIATED_TOKEN_PROGRAM_ID} from 
 import {WRAPPED_SOL_MINT} from "@project-serum/serum/lib/token-instructions";
 const metaplex = require("@metaplex/js");
 
-// consts
+// CONSTS
 const AUTH_PDA_SEED = "auth_pda_seed";
 const TOKEN_ACCOUNT_PDA_SEED = "token_account_pda_seed";
+const program_id = 'EV4PDhhYJNQbGHiecjtXy22fEuL9N5b6MfaR68jbBcpk'; // can also load from file as done with localKeypair below
 
 // CONFIG
+let candy_machine = new PublicKey("de2RQEkW9v5m264vfZWSdtRw2gX3o9fHABAVPaoHdmk");
+
+// PARAMS
 const localKeypair = Keypair.fromSecretKey(Buffer.from(JSON.parse(require("fs").readFileSync("/home/myware/.config/solana/mainnet.json", {encoding: "utf-8",}))));
-let program_id = 'EV4PDhhYJNQbGHiecjtXy22fEuL9N5b6MfaR68jbBcpk'; // can also load from file as done with localKeypair below
-let candy_machine = new PublicKey("4ZjwpMDakNNXQKNwUVahCLNZGkRsUFRkgQE9nT3mMaHW");
 let owners = [localKeypair.publicKey, Keypair.generate().publicKey, Keypair.generate().publicKey];
 let signer_threshold = 1;
 let tipping_point_threshold = 2;
@@ -22,7 +24,7 @@ let tomorrow = Math.floor(Date.now() / 1000) + (60 * 60 * 24); // unix timestamp
 let end_timestamp = tomorrow;
 let is_simulation = false;
 
-// setup
+// SETUP
 const programId = new anchor.web3.PublicKey(program_id);
 let wallet = new Wallet(localKeypair);
 let opts = Provider.defaultOptions();
@@ -36,12 +38,15 @@ function to_lamports(num_sol) {
 }
 
 async function test_manual_registration() {
+
+    // CONFIG
+    const CLIMAX_CONTROLLER_ID = new PublicKey("H5GUANnNJoqckCk3epbHyb1jyoZfQc6m6LUq8AsuyBLX");
+    const MINT_ADDY = new PublicKey("DbWwFDyHFe2hrKeP2VWvp1B34ohxMz7QNZF52GoDL11U");
+
     const TOKEN_METADATA_PROGRAM_ID = new anchor.web3.PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
-    const MINT_ADDY = new PublicKey("BbyN25jhDLxt8K2FAsZVE1hwJBeoN5QB8yMv8tKHBJGX");
     const USER_PDA_SEED = "user_pda_seed";
     const METADATA_PREFIX = "metadata";
     const NFT_PDA_SEED = "nft_registration_pda_seed";
-    const CLIMAX_CONTROLLER_ID = new PublicKey("DKppV4hPioChD4kTyCtg4z68km86rRnDPeMtL7D2C4vj");
     // let idl = await anchor.Program.fetchIdl(programId, provider);
     const program = new anchor.Program(idl, programId, provider);
 
@@ -153,7 +158,7 @@ async function initialize_climax_controller() {
     fs.writeFileSync('./devnet_tests/conf', data);
 }
 
-test_manual_registration()
+initialize_climax_controller()
     .then(value => {
         console.log("success with value: {}", value);
     })

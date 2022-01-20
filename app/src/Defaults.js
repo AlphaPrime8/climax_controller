@@ -3,7 +3,7 @@ import {PublicKey} from "@solana/web3.js";
 // defaults
 const CANDY_MACHINE_PROGRAM_ID = new PublicKey("cndy3Z4yapfJBmL3ShUp5exZKqR3z33thTzeNMm2gRZ");
 const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
-const CLIMAX_CONTROLLER_PROGRAM_ID = new PublicKey("4c5pK4aj8vUnnSgH7bmm1yXBjU9ANNCmGk1wG24uVrYp");
+const CLIMAX_CONTROLLER_PROGRAM_ID = new PublicKey("EV4PDhhYJNQbGHiecjtXy22fEuL9N5b6MfaR68jbBcpk");
 const DEFAULT_MULTISIG_STATE = {
     treasury_balance: 0,
     signer_threshold: 0,

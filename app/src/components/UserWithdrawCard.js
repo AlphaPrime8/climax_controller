@@ -15,7 +15,7 @@ const UserWithdrawCard = ({ executeUserWithdraw, climaxControllerState }) => {
                   {/*MULTISIG CONFIGURATION HERE*/}
                   <div>
                      <p>User withdraws open: {climaxControllerState.user_withdraws_open.toString()}</p>
-                     <p>User Addy: {to_sol(climaxControllerState.user_addy)} </p>
+                     <p>User Addy: {climaxControllerState.user_addy.slice(0,4) + "..." + climaxControllerState.user_addy.slice(-4, climaxControllerState.user_addy.length)} </p>
                   </div>
                </div>
                <div className='stake-card-NFT flex flex-col'>
@@ -23,8 +23,8 @@ const UserWithdrawCard = ({ executeUserWithdraw, climaxControllerState }) => {
                   {/*MULTISIG CONFIGURATION HERE*/}
                   <div>
                      <p>User funds paid: {to_sol(climaxControllerState.user_funds_paid)} SOL</p>
-                     <p>User funds withdrawn: {climaxControllerState.user_funds_withdrawn} SOL</p>
-                     <p>User funds eligible to withdraw: {climaxControllerState.user_funds_paid - climaxControllerState.user_funds_withdrawn} SOL</p>
+                     <p>User funds withdrawn: {to_sol(climaxControllerState.user_funds_withdrawn)} SOL</p>
+                     <p>User funds eligible to withdraw: {climaxControllerState.user_withdraws_open ? to_sol(climaxControllerState.user_funds_paid - climaxControllerState.user_funds_withdrawn) : 0} SOL</p>
                   </div>
                </div>
 

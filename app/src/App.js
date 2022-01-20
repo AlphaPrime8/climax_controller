@@ -26,6 +26,9 @@ require('@solana/wallet-adapter-react-ui/styles.css');
 const metaplex = require('@metaplex/js');
 const spl_token = require('@solana/spl-token');
 
+// consts
+const USER_PDA_SEED = "user_pda_seed";
+
 // setup
 const wallets = [getPhantomWallet()];
 // const network = clusterApiUrl('mainnet-beta');
@@ -38,6 +41,8 @@ const opts = {preflightCommitment: 'processed'};
 let cmProgram = null;
 let ccProgram = null;
 let nativeMint = null;
+let provider = null;
+let user_pda = null;
 
 
 function App() {
@@ -52,7 +57,7 @@ function App() {
       const wallet = wallets[0].adapter();
       await wallet.connect();
       console.log("getting provider with local wallet PK: %s", wallet.publicKey.toString());
-      const provider = new Provider(
+      provider = new Provider(
           connection,
           wallet,
           opts.preflightCommitment
@@ -65,6 +70,15 @@ function App() {
       ccProgram = new anchor.Program(ccIdl, CLIMAX_CONTROLLER_PROGRAM_ID, provider);
 
       nativeMint = new Token(provider.connection, NATIVE_MINT, TOKEN_PROGRAM_ID, provider.wallet);
+
+
+      // load user pda
+
+      [user_pda] = await PublicKey.findProgramAddress(
+          [CLIMAX_CONTROLLER_ID.toBuffer(), provider.wallet.publicKey.toBuffer(), Buffer.from(USER_PDA_SEED)],
+          ccProgram.programId
+      );
+
 
       console.log("done initializing")
 
@@ -126,8 +140,25 @@ function App() {
       const treasuryBalance = acctInfo.amount.toNumber();
       newClimaxControllerState.treasury_balance = treasuryBalance;
 
+      // load user pda state
+      newClimaxControllerState.user_addy = provider.wallet.publicKey.toString();
 
-      // TODO load user pda state
+      try {
+         let userPdaInfo = await ccProgram.account.userMetadata.fetch(user_pda);
+         console.log("got userpdainfo: ", userPdaInfo);
+         userPdaInfo.amountPaid.toNumber();
+
+         newClimaxControllerState.user_withdraws_open = !multisigWithdrawsOpen && (hoursTillClose < 0);
+         newClimaxControllerState.user_funds_paid = userPdaInfo.amountPaid.toNumber();
+         newClimaxControllerState.user_funds_withdrawn = userPdaInfo.amountWithdrawn.toNumber();
+
+      }
+      catch (e) {
+         newClimaxControllerState.user_withdraws_open = false;
+         newClimaxControllerState.user_funds_paid = 0;
+         newClimaxControllerState.user_funds_withdrawn = 0;
+         console.log("User PDA not found.");
+      }
 
       setClimaxControllerState(newClimaxControllerState);
       setIsLoading(false);
