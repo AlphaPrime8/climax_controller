@@ -20,14 +20,16 @@ import { getPhantomWallet } from '@solana/wallet-adapter-wallets';
 import {WalletProvider, ConnectionProvider} from '@solana/wallet-adapter-react';
 import {WalletModalProvider} from '@solana/wallet-adapter-react-ui';
 import {NATIVE_MINT, Token} from "@solana/spl-token";
-import {TOKEN_PROGRAM_ID} from "@project-serum/serum/lib/token-instructions";
-import {to_lamports, to_sol} from "./utils";
+import {TOKEN_PROGRAM_ID, WRAPPED_SOL_MINT} from "@project-serum/serum/lib/token-instructions";
+import {to_lamports, to_sol, shorten_address} from "./utils";
 require('@solana/wallet-adapter-react-ui/styles.css');
 const metaplex = require('@metaplex/js');
 const spl_token = require('@solana/spl-token');
 
 // consts
 const USER_PDA_SEED = "user_pda_seed";
+const TOKEN_ACCOUNT_PDA_SEED = "token_account_pda_seed";
+const AUTH_PDA_SEED = "auth_pda_seed";
 
 // setup
 const wallets = [getPhantomWallet()];
@@ -43,6 +45,8 @@ let ccProgram = null;
 let nativeMint = null;
 let provider = null;
 let user_pda = null;
+let pool_wrapped_sol = null;
+let auth_pda = null;
 
 
 function App() {
@@ -70,9 +74,15 @@ function App() {
       ccProgram = new anchor.Program(ccIdl, CLIMAX_CONTROLLER_PROGRAM_ID, provider);
 
       nativeMint = new Token(provider.connection, NATIVE_MINT, TOKEN_PROGRAM_ID, provider.wallet);
+      [pool_wrapped_sol] = await PublicKey.findProgramAddress(
+          [CLIMAX_CONTROLLER_ID.toBuffer(), Buffer.from(TOKEN_ACCOUNT_PDA_SEED)],
+          ccProgram.programId
+      );
 
-
-      // load user pda
+      [auth_pda] = await PublicKey.findProgramAddress(
+          [CLIMAX_CONTROLLER_ID.toBuffer(), Buffer.from(AUTH_PDA_SEED)],
+          ccProgram.programId
+      );
 
       [user_pda] = await PublicKey.findProgramAddress(
           [CLIMAX_CONTROLLER_ID.toBuffer(), provider.wallet.publicKey.toBuffer(), Buffer.from(USER_PDA_SEED)],
@@ -135,6 +145,9 @@ function App() {
       newClimaxControllerState.signers_arr = signersArr;
       newClimaxControllerState.sufficient_signers_have_approved = sufficientSignersHaveApproved;
 
+      console.log("Got proposed receiver: ", proposedReceiver.toString());
+      console.log("This is an automatically generated ATA, verify manually that it's owned by your desired account.");
+
       // load treasury
       let acctInfo = await nativeMint.getAccountInfo(POOL_WRAPPED_SOL);
       const treasuryBalance = acctInfo.amount.toNumber();
@@ -163,11 +176,99 @@ function App() {
       setClimaxControllerState(newClimaxControllerState);
       setIsLoading(false);
    }
-   async function approveMultisigWithdraw() {}
-   async function executeUserWithdraw() {}
-   async function proposeMultisigWithdraw() {}
-   async function executeMultisigWithdraw() {}
 
+   async function approveMultisigWithdraw() {
+      setIsLoading(true);
+
+      let result = await ccProgram.rpc.approveMultisigWithdraw(
+          new anchor.BN(climaxControllerState.proposed_amount),
+          climaxControllerState.proposed_receiver,
+          {
+             accounts: {
+                signer: provider.wallet.publicKey,
+                climaxController: CLIMAX_CONTROLLER_ID,
+                systemProgram: SystemProgram.programId,
+             },
+          }
+      );
+
+      console.log("got result: ", result);
+      await loadClimaxControllerState();
+   }
+
+   async function executeUserWithdraw() {
+      setIsLoading(true);
+
+      let user_wrapped_sol_ata = await nativeMint.getOrCreateAssociatedAccountInfo(provider.wallet.publicKey);
+      let result = await ccProgram.rpc.executeUserWithdraw(
+          {
+             accounts: {
+                signer: provider.wallet.publicKey,
+                climaxController: CLIMAX_CONTROLLER_ID,
+                authPda: auth_pda,
+                poolWrappedSol: pool_wrapped_sol,
+                userMetadataPda: user_pda,
+                wsolMint: WRAPPED_SOL_MINT,
+                proposedReceiver: user_wrapped_sol_ata.address,
+                candyMachine: CANDY_MACHINE_ID,
+                systemProgram: SystemProgram.programId,
+                tokenProgram: TOKEN_PROGRAM_ID,
+             },
+          }
+      );
+      console.log("got result: ", result);
+
+      await loadClimaxControllerState();
+   }
+   async function proposeMultisigWithdraw(proposedAmount, proposedReceiver) {
+      setIsLoading(true);
+
+
+      let proposed_receiver = new PublicKey(proposedReceiver);
+      let wrapped_sol_ata = await nativeMint.getOrCreateAssociatedAccountInfo(proposed_receiver);
+      console.log("got wrapped_sol_ata: ", wrapped_sol_ata.address);
+
+      let result = await ccProgram.rpc.proposeMultisigWithdraw(
+          new anchor.BN(to_lamports(proposedAmount)),
+          wrapped_sol_ata.address,
+          {
+             accounts: {
+                signer: provider.wallet.publicKey,
+                climaxController: CLIMAX_CONTROLLER_ID,
+                poolWrappedSol: pool_wrapped_sol,
+                wsolMint: NATIVE_MINT,
+                systemProgram: SystemProgram.programId,
+                tokenProgram: TOKEN_PROGRAM_ID,
+             },
+          }
+      );
+
+      console.log("got result: ", result);
+      await loadClimaxControllerState();
+   }
+
+   async function executeMultisigWithdraw() {
+      setIsLoading(true);
+
+      let result = await ccProgram.rpc.executeMultisigWithdraw(
+          {
+             accounts: {
+                signer: provider.wallet.publicKey,
+                climaxController: CLIMAX_CONTROLLER_ID,
+                poolWrappedSol: pool_wrapped_sol,
+                proposedReceiver: climaxControllerState.proposed_receiver,
+                authPda: auth_pda,
+                wsolMint: WRAPPED_SOL_MINT,
+                candyMachine: CANDY_MACHINE_ID,
+                systemProgram: SystemProgram.programId,
+                tokenProgram: TOKEN_PROGRAM_ID,
+             },
+          }
+      );
+      console.log("got result: ", result);
+
+      await loadClimaxControllerState();
+   }
 
    return (
       <ConnectionProvider endpoint={network}>

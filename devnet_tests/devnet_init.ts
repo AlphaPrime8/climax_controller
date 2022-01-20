@@ -7,22 +7,23 @@ import {NATIVE_MINT, TOKEN_PROGRAM_ID, Token, ASSOCIATED_TOKEN_PROGRAM_ID} from 
 import {WRAPPED_SOL_MINT} from "@project-serum/serum/lib/token-instructions";
 const metaplex = require("@metaplex/js");
 
-// CONSTS
-const AUTH_PDA_SEED = "auth_pda_seed";
-const TOKEN_ACCOUNT_PDA_SEED = "token_account_pda_seed";
-const program_id = 'EV4PDhhYJNQbGHiecjtXy22fEuL9N5b6MfaR68jbBcpk'; // can also load from file as done with localKeypair below
-
 // CONFIG
-let candy_machine = new PublicKey("de2RQEkW9v5m264vfZWSdtRw2gX3o9fHABAVPaoHdmk");
+let candy_machine = new PublicKey("AY937M8c8d7uiKr2pxYpArt9qVAQ8R3MS29dALbvzyHs");
 
 // PARAMS
 const localKeypair = Keypair.fromSecretKey(Buffer.from(JSON.parse(require("fs").readFileSync("/home/myware/.config/solana/mainnet.json", {encoding: "utf-8",}))));
 let owners = [localKeypair.publicKey, Keypair.generate().publicKey, Keypair.generate().publicKey];
 let signer_threshold = 1;
-let tipping_point_threshold = 2;
-let tomorrow = Math.floor(Date.now() / 1000) + (60 * 60 * 24); // unix timestamp seconds
-let end_timestamp = tomorrow;
+let tipping_point_threshold = 3;
+// let tomorrow = Math.floor(Date.now() / 1000) + (60 * 60 * 24); // unix timestamp seconds
+let now = Math.floor(Date.now() / 1000);
+let end_timestamp = now;
 let is_simulation = false;
+
+// CONSTS
+const AUTH_PDA_SEED = "auth_pda_seed";
+const TOKEN_ACCOUNT_PDA_SEED = "token_account_pda_seed";
+const program_id = 'EV4PDhhYJNQbGHiecjtXy22fEuL9N5b6MfaR68jbBcpk'; // can also load from file as done with localKeypair below
 
 // SETUP
 const programId = new anchor.web3.PublicKey(program_id);

@@ -1,5 +1,5 @@
 import React from 'react';
-import {to_sol} from "../utils";
+import {to_sol, shorten_address} from "../utils";
 
 const MultisigStateCard = ({ approveMultisigWithdraw, climaxControllerState }) => {
    return (
@@ -33,7 +33,7 @@ const MultisigStateCard = ({ approveMultisigWithdraw, climaxControllerState }) =
                   <h3 className='bold NFT-heading'>Withdraw Proposal</h3>
                   <div>
                      <p>Proposal is active: {climaxControllerState.proposal_is_active.toString()}</p>
-                     <p>Proposed Receiver: {climaxControllerState.proposed_receiver.toString()}</p>
+                     <p>Proposed Receiver: {shorten_address(climaxControllerState.proposed_receiver.toString())}</p>
                      <p>Proposed Amount: {to_sol(climaxControllerState.proposed_amount)} SOL</p>
                   </div>
                </div>
