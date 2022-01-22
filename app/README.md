@@ -1,3 +1,11 @@
+# ClimaxContoller Configuration
+
+Simple udpate app/src/Config.js with the following values:
+1. CANDY_MACHINE_ID
+2. CLIMAX_CONTROLLER_ID
+3. POOL_WRAPPED SOL
+
+Items (2) and (3) will be generated upon initialization of your ClimaxController Instance.
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
