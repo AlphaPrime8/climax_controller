@@ -8,16 +8,16 @@ import {WRAPPED_SOL_MINT} from "@project-serum/serum/lib/token-instructions";
 const metaplex = require("@metaplex/js");
 
 // CONFIG
-let candy_machine = new PublicKey("AY937M8c8d7uiKr2pxYpArt9qVAQ8R3MS29dALbvzyHs");
+let candy_machine = new PublicKey("GB4BYcNWHTyHHWq3sTjeGc9J1i5PDKzzZH4rDHY4gEdk");
 
 // PARAMS
 const localKeypair = Keypair.fromSecretKey(Buffer.from(JSON.parse(require("fs").readFileSync("/home/myware/.config/solana/mainnet.json", {encoding: "utf-8",}))));
 let owners = [localKeypair.publicKey, Keypair.generate().publicKey, Keypair.generate().publicKey];
 let signer_threshold = 1;
-let tipping_point_threshold = 3;
-// let tomorrow = Math.floor(Date.now() / 1000) + (60 * 60 * 24); // unix timestamp seconds
-let now = Math.floor(Date.now() / 1000);
-let end_timestamp = now;
+let tipping_point_threshold = 10;
+let in_one_week = Math.floor(Date.now() / 1000) + (7 * 60 * 60 * 24); // unix timestamp seconds
+// let now = Math.floor(Date.now() / 1000);
+let end_timestamp = in_one_week;
 let is_simulation = false;
 
 // CONSTS

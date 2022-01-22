@@ -658,7 +658,7 @@ pub fn check_owner(info: &AccountInfo, is_simulation: bool, is_metadata: bool) -
         }
     };
     if actual_owner != expected_owner {
-        return Err(ErrorCode::TooManyOwners.into());
+        return Err(ErrorCode::InvalidAccountOwner.into());
     }
     Ok(())
 }
