@@ -8,7 +8,7 @@ import {WRAPPED_SOL_MINT} from "@project-serum/serum/lib/token-instructions";
 const metaplex = require("@metaplex/js");
 
 // CONFIG
-let candy_machine = new PublicKey("GB4BYcNWHTyHHWq3sTjeGc9J1i5PDKzzZH4rDHY4gEdk");
+let candy_machine = new PublicKey("DwC3bkfj3cjLDCwhMsUgJ9nPkMCkwums6wu7q1Hj1oso");
 
 // PARAMS
 const localKeypair = Keypair.fromSecretKey(Buffer.from(JSON.parse(require("fs").readFileSync("/home/myware/.config/solana/mainnet.json", {encoding: "utf-8",}))));

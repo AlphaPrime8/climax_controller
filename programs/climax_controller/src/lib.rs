@@ -439,7 +439,7 @@ pub struct InitializeClimaxController<'info> {
 pub struct InitUserMetadataPda<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
-    #[account(mut)] // TODO is this really mutable? i guess it program owned so sure, we're not changing it anyways...
+    #[account(mut)]
     pub climax_controller: Account<'info, ClimaxController>,
     #[account(
         init,
@@ -456,7 +456,7 @@ pub struct RegisterNft<'info> {
     pub signer: Signer<'info>,
     #[account(mut)]
     pub climax_controller: Account<'info, ClimaxController>,
-    #[account(mut)] // TODO add Token::authrity = signer constraint, should be redundant to mut but double check
+    #[account(mut)] // TODO add Token::authority = signer constraint, should be redundant to mut but double check
     pub nft_mint: Account<'info, Mint>,
     #[account(
         init,
@@ -464,7 +464,7 @@ pub struct RegisterNft<'info> {
         bump,
         payer = signer)]
     pub nft_metadata_pda: Account<'info, NftMetadata>,
-    pub metaplex_metadata_pda: AccountInfo<'info>,
+    pub metaplex_metadata_pda: AccountInfo<'info>, // validated in program logic
     #[account(
         mut,
         seeds = [climax_controller.key().as_ref(), signer.key().as_ref(), USER_PDA_SEED],
