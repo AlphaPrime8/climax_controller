@@ -35,7 +35,8 @@ const AUTH_PDA_SEED = "auth_pda_seed";
 const wallets = [getPhantomWallet()];
 // const network = clusterApiUrl('mainnet-beta');
 // const network = "http://127.0.0.1:8899";
-const network = clusterApiUrl('devnet');
+// const network = clusterApiUrl('devnet');
+const network = clusterApiUrl('mainnet-beta');
 const { SystemProgram } = web3;
 const opts = {preflightCommitment: 'processed'};
 

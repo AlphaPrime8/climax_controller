@@ -8,16 +8,19 @@ import {WRAPPED_SOL_MINT} from "@project-serum/serum/lib/token-instructions";
 const metaplex = require("@metaplex/js");
 
 // CONFIG
-let candy_machine = new PublicKey("DwC3bkfj3cjLDCwhMsUgJ9nPkMCkwums6wu7q1Hj1oso");
+let candy_machine = new PublicKey("F2fNXNCA3Jj4crmBeZ4DfCxRB41Nby4wCfF2kZvU9vvg");
 
 // PARAMS
 const localKeypair = Keypair.fromSecretKey(Buffer.from(JSON.parse(require("fs").readFileSync("/home/myware/.config/solana/mainnet.json", {encoding: "utf-8",}))));
-let owners = [localKeypair.publicKey, Keypair.generate().publicKey, Keypair.generate().publicKey];
-let signer_threshold = 1;
-let tipping_point_threshold = 10;
-let in_one_week = Math.floor(Date.now() / 1000) + (7 * 60 * 60 * 24); // unix timestamp seconds
+// const ALPHA_PUPKEY = "F4ccpuMJGdNsU3kcX7xAda9DAxqd8FE1dy4uuV6nKXCR";
+const BELA_PUPKEY = new PublicKey("GrGUgPNUHKPQ8obxmmbKKJUEru1D6uWu9fYnUuWjbXyi");
+const ROHDEL_PUBKEY = new PublicKey("D4K5yZR1kcvaX7ZDTUWpGoZM8gHVjC1pxB1m1vSmC5NZ");
+let owners = [localKeypair.publicKey, BELA_PUPKEY, ROHDEL_PUBKEY];
+let signer_threshold = 2;
+let tipping_point_threshold = 3000;
+let in_one_month = Math.floor(Date.now() / 1000) + (32 * 60 * 60 * 24); // unix timestamp seconds
 // let now = Math.floor(Date.now() / 1000);
-let end_timestamp = in_one_week;
+let end_timestamp = in_one_month;
 let is_simulation = false;
 
 // CONSTS
@@ -29,7 +32,8 @@ const program_id = 'EV4PDhhYJNQbGHiecjtXy22fEuL9N5b6MfaR68jbBcpk'; // can also l
 const programId = new anchor.web3.PublicKey(program_id);
 let wallet = new Wallet(localKeypair);
 let opts = Provider.defaultOptions();
-const network = clusterApiUrl('devnet');
+// const network = clusterApiUrl('devnet');
+const network = clusterApiUrl('mainnet-beta');
 let connection = new web3.Connection(network, opts.preflightCommitment);
 let provider = new Provider(connection, wallet, opts);
 let idl = JSON.parse(require('fs').readFileSync('./target/idl/climax_controller.json', 'utf8'));
@@ -38,75 +42,75 @@ function to_lamports(num_sol) {
     return Math.round(num_sol * 1e9);
 }
 
-async function test_manual_registration() {
-
-    // CONFIG
-    const CLIMAX_CONTROLLER_ID = new PublicKey("H5GUANnNJoqckCk3epbHyb1jyoZfQc6m6LUq8AsuyBLX");
-    const MINT_ADDY = new PublicKey("DbWwFDyHFe2hrKeP2VWvp1B34ohxMz7QNZF52GoDL11U");
-
-    const TOKEN_METADATA_PROGRAM_ID = new anchor.web3.PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
-    const USER_PDA_SEED = "user_pda_seed";
-    const METADATA_PREFIX = "metadata";
-    const NFT_PDA_SEED = "nft_registration_pda_seed";
-    // let idl = await anchor.Program.fetchIdl(programId, provider);
-    const program = new anchor.Program(idl, programId, provider);
-
-    const [user_pda] = await PublicKey.findProgramAddress(
-        [CLIMAX_CONTROLLER_ID.toBuffer(), localKeypair.publicKey.toBuffer(), Buffer.from(USER_PDA_SEED)],
-        program.programId
-    );
-
-    try {
-      let userPdaInfo = await program.account.userMetadata.fetch(user_pda);
-      console.log("got userpdainfo: ", userPdaInfo);
-    }
-    catch (e) {
-      console.log("adding init user metadata pda instruction ");
-
-        await program.rpc.initUserMetadataPda(
-            {
-                accounts: {
-                    signer: localKeypair.publicKey,
-                    climaxController: CLIMAX_CONTROLLER_ID,
-                    userMetadataPda: user_pda,
-                    systemProgram: SystemProgram.programId,
-                },
-                signers: [localKeypair], //TODO add back climax_controller
-            }
-        );
-        console.log("initialized user metadata pda")
-    }
-
-    const [nft_metadata_pda] = await PublicKey.findProgramAddress(
-        [Buffer.from(NFT_PDA_SEED), MINT_ADDY.toBuffer()],
-        program.programId
-    );
-
-    const [metadata_pda] = await PublicKey.findProgramAddress(
-        [Buffer.from(METADATA_PREFIX), TOKEN_METADATA_PROGRAM_ID.toBuffer(), MINT_ADDY.toBuffer()],
-        TOKEN_METADATA_PROGRAM_ID
-    );
-
-    await program.rpc.registerNft(
-        {
-            accounts: {
-                signer: localKeypair.publicKey,
-                climaxController: CLIMAX_CONTROLLER_ID,
-                nftMint: MINT_ADDY,
-                nftMetadataPda: nft_metadata_pda,
-                metaplexMetadataPda: metadata_pda,
-                userMetadataPda: user_pda,
-                candyMachine: candy_machine, // our specific candy machine
-                systemProgram: SystemProgram.programId,
-            },
-            signers: [localKeypair], //TODO add back climax_controller
-        }
-    );
-
-    console.log("registered nft");
-
-
-}
+// async function test_manual_registration() {
+//
+//     // CONFIG
+//     const CLIMAX_CONTROLLER_ID = new PublicKey("H5GUANnNJoqckCk3epbHyb1jyoZfQc6m6LUq8AsuyBLX");
+//     const MINT_ADDY = new PublicKey("DbWwFDyHFe2hrKeP2VWvp1B34ohxMz7QNZF52GoDL11U");
+//
+//     const TOKEN_METADATA_PROGRAM_ID = new anchor.web3.PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+//     const USER_PDA_SEED = "user_pda_seed";
+//     const METADATA_PREFIX = "metadata";
+//     const NFT_PDA_SEED = "nft_registration_pda_seed";
+//     // let idl = await anchor.Program.fetchIdl(programId, provider);
+//     const program = new anchor.Program(idl, programId, provider);
+//
+//     const [user_pda] = await PublicKey.findProgramAddress(
+//         [CLIMAX_CONTROLLER_ID.toBuffer(), localKeypair.publicKey.toBuffer(), Buffer.from(USER_PDA_SEED)],
+//         program.programId
+//     );
+//
+//     try {
+//       let userPdaInfo = await program.account.userMetadata.fetch(user_pda);
+//       console.log("got userpdainfo: ", userPdaInfo);
+//     }
+//     catch (e) {
+//       console.log("adding init user metadata pda instruction ");
+//
+//         await program.rpc.initUserMetadataPda(
+//             {
+//                 accounts: {
+//                     signer: localKeypair.publicKey,
+//                     climaxController: CLIMAX_CONTROLLER_ID,
+//                     userMetadataPda: user_pda,
+//                     systemProgram: SystemProgram.programId,
+//                 },
+//                 signers: [localKeypair], //TODO add back climax_controller
+//             }
+//         );
+//         console.log("initialized user metadata pda")
+//     }
+//
+//     const [nft_metadata_pda] = await PublicKey.findProgramAddress(
+//         [Buffer.from(NFT_PDA_SEED), MINT_ADDY.toBuffer()],
+//         program.programId
+//     );
+//
+//     const [metadata_pda] = await PublicKey.findProgramAddress(
+//         [Buffer.from(METADATA_PREFIX), TOKEN_METADATA_PROGRAM_ID.toBuffer(), MINT_ADDY.toBuffer()],
+//         TOKEN_METADATA_PROGRAM_ID
+//     );
+//
+//     await program.rpc.registerNft(
+//         {
+//             accounts: {
+//                 signer: localKeypair.publicKey,
+//                 climaxController: CLIMAX_CONTROLLER_ID,
+//                 nftMint: MINT_ADDY,
+//                 nftMetadataPda: nft_metadata_pda,
+//                 metaplexMetadataPda: metadata_pda,
+//                 userMetadataPda: user_pda,
+//                 candyMachine: candy_machine, // our specific candy machine
+//                 systemProgram: SystemProgram.programId,
+//             },
+//             signers: [localKeypair], //TODO add back climax_controller
+//         }
+//     );
+//
+//     console.log("registered nft");
+//
+//
+// }
 
 async function initialize_climax_controller() {
 
