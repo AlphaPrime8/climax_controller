@@ -118,6 +118,7 @@ function App() {
       const signerThreshold = ccState.signerThreshold.toNumber();
       const tippingPointThreshold = ccState.tippingPointThreshold.toNumber();
       const endTsUnixSeconds = ccState.endTimestamp.toNumber();
+      console.log("got endTsUnitSeconds: ", endTsUnixSeconds);
       const now = Math.floor(Date.now() / 1000)
       const remainingSeconds = endTsUnixSeconds - now;
       const hoursTillClose = remainingSeconds / (60 * 60);

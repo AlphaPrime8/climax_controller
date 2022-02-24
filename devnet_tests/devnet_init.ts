@@ -7,20 +7,20 @@ import {NATIVE_MINT, TOKEN_PROGRAM_ID, Token, ASSOCIATED_TOKEN_PROGRAM_ID} from 
 import {WRAPPED_SOL_MINT} from "@project-serum/serum/lib/token-instructions";
 const metaplex = require("@metaplex/js");
 
-// CONFIG
-let candy_machine = new PublicKey("F2fNXNCA3Jj4crmBeZ4DfCxRB41Nby4wCfF2kZvU9vvg");
+// CONFIG TODO chanche this
+let candy_machine = new PublicKey("AX2YBcS7eeooUkzWC4sHVPSbnKWgN1QdkKdVNdetHvfx");
 
 // PARAMS
 const localKeypair = Keypair.fromSecretKey(Buffer.from(JSON.parse(require("fs").readFileSync("/home/myware/.config/solana/mainnet.json", {encoding: "utf-8",}))));
 // const ALPHA_PUPKEY = "F4ccpuMJGdNsU3kcX7xAda9DAxqd8FE1dy4uuV6nKXCR";
 const BELA_PUPKEY = new PublicKey("GrGUgPNUHKPQ8obxmmbKKJUEru1D6uWu9fYnUuWjbXyi");
 const ROHDEL_PUBKEY = new PublicKey("D4K5yZR1kcvaX7ZDTUWpGoZM8gHVjC1pxB1m1vSmC5NZ");
-let owners = [localKeypair.publicKey, BELA_PUPKEY, ROHDEL_PUBKEY];
+let owners = [localKeypair.publicKey, BELA_PUPKEY];
 let signer_threshold = 2;
-let tipping_point_threshold = 3000;
-let in_one_month = Math.floor(Date.now() / 1000) + (32 * 60 * 60 * 24); // unix timestamp seconds
+let tipping_point_threshold = 1500;
+let in_one_month = Math.floor(Date.now() / 1000) + (32 * 60 * 60 * 24); // unix timestamp seconds //TODO get this timing correCt!!!!!!
 // let now = Math.floor(Date.now() / 1000);
-let end_timestamp = in_one_month;
+let end_timestamp = 1646373331 - (60*60*24);//CALCULATE EXACT FROM CURRENT CC!!!!
 let is_simulation = false;
 
 // CONSTS
