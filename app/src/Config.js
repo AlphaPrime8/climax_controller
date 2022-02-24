@@ -1,9 +1,9 @@
 import {PublicKey} from "@solana/web3.js";
 
 // config
-const CANDY_MACHINE_ID = new PublicKey("F2fNXNCA3Jj4crmBeZ4DfCxRB41Nby4wCfF2kZvU9vvg");
-const CLIMAX_CONTROLLER_ID = new PublicKey("xYXM85QjYZTBaKcJCDRSZmYRgaPvcrHtbMP9a7dyGjx");
-const POOL_WRAPPED_SOL = new PublicKey("CfiWi1Bp9DvVPNrUGAJGgBs35GZwx4ebEBKBs8DDa4bE");
+const CANDY_MACHINE_ID = new PublicKey("AX2YBcS7eeooUkzWC4sHVPSbnKWgN1QdkKdVNdetHvfx");
+const CLIMAX_CONTROLLER_ID = new PublicKey("3bRJnPTpUKX6FKPD4oMuFHY9Bd5jCNrykr2Uaw2ioCRV");
+const POOL_WRAPPED_SOL = new PublicKey("5Vmewj46rawD1AQQ249sBviFjQromwrn4HgbNeN6TUxw");
 
 export {CANDY_MACHINE_ID, CLIMAX_CONTROLLER_ID, POOL_WRAPPED_SOL};
 
