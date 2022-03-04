@@ -204,6 +204,12 @@ function App() {
    async function executeUserWithdraw() {
       setIsLoading(true);
 
+      if (climaxControllerState.user_funds_withdrawn >= climaxControllerState.user_funds_paid){
+         alert("You have already withdrawn your funds.")
+         setIsLoading(false);
+         return;
+      }
+
       console.log("attemping user withdraw");
 
       // load ata
