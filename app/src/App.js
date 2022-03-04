@@ -266,6 +266,33 @@ function App() {
       await loadClimaxControllerState();
    }
 
+   async function proposeMultisigWithdraw(proposedAmount, proposedReceiver) {
+      setIsLoading(true);
+
+
+      let proposed_receiver = new PublicKey(proposedReceiver);
+      let wrapped_sol_ata = await nativeMint.getOrCreateAssociatedAccountInfo(proposed_receiver);
+      console.log("got wrapped_sol_ata: ", wrapped_sol_ata.address);
+
+      let result = await ccProgram.rpc.proposeMultisigWithdraw(
+          new anchor.BN(to_lamports(proposedAmount)),
+          wrapped_sol_ata.address,
+          {
+             accounts: {
+                signer: provider.wallet.publicKey,
+                climaxController: CLIMAX_CONTROLLER_ID,
+                poolWrappedSol: pool_wrapped_sol,
+                wsolMint: NATIVE_MINT,
+                systemProgram: SystemProgram.programId,
+                tokenProgram: TOKEN_PROGRAM_ID,
+             },
+          }
+      );
+
+      console.log("got result: ", result);
+      await loadClimaxControllerState();
+   }
+
    async function executeMultisigWithdraw() {
       setIsLoading(true);
 
