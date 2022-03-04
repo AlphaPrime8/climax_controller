@@ -14,12 +14,12 @@ import ProposeMultisigWithdrawCard from "./components/ProposeMultisigWithdrawCar
 // web3 dependencies
 import * as anchor from '@project-serum/anchor';
 import { useState } from 'react';
-import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
+import {Connection, PublicKey, clusterApiUrl, Transaction} from '@solana/web3.js';
 import { Provider, web3 } from '@project-serum/anchor';
 import { getPhantomWallet } from '@solana/wallet-adapter-wallets';
 import {WalletProvider, ConnectionProvider} from '@solana/wallet-adapter-react';
 import {WalletModalProvider} from '@solana/wallet-adapter-react-ui';
-import {NATIVE_MINT, Token} from "@solana/spl-token";
+import {ASSOCIATED_TOKEN_PROGRAM_ID, NATIVE_MINT, Token} from "@solana/spl-token";
 import {TOKEN_PROGRAM_ID, WRAPPED_SOL_MINT} from "@project-serum/serum/lib/token-instructions";
 import {to_lamports, to_sol, shorten_address} from "./utils";
 require('@solana/wallet-adapter-react-ui/styles.css');
