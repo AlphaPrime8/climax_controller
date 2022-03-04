@@ -268,6 +268,7 @@ function App() {
 
       await loadClimaxControllerState();
    }
+
    async function proposeMultisigWithdraw(proposedAmount, proposedReceiver) {
       setIsLoading(true);
 
