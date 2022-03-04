@@ -14,14 +14,15 @@ import ProposeMultisigWithdrawCard from "./components/ProposeMultisigWithdrawCar
 // web3 dependencies
 import * as anchor from '@project-serum/anchor';
 import { useState } from 'react';
-import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
+import {Connection, PublicKey, clusterApiUrl, Transaction} from '@solana/web3.js';
 import { Provider, web3 } from '@project-serum/anchor';
 import { getPhantomWallet } from '@solana/wallet-adapter-wallets';
-import {WalletProvider, ConnectionProvider} from '@solana/wallet-adapter-react';
+import {WalletProvider, ConnectionProvider, useWallet} from '@solana/wallet-adapter-react';
 import {WalletModalProvider} from '@solana/wallet-adapter-react-ui';
-import {NATIVE_MINT, Token} from "@solana/spl-token";
+import {ASSOCIATED_TOKEN_PROGRAM_ID, NATIVE_MINT, Token} from "@solana/spl-token";
 import {TOKEN_PROGRAM_ID, WRAPPED_SOL_MINT} from "@project-serum/serum/lib/token-instructions";
 import {to_lamports, to_sol, shorten_address} from "./utils";
+import {connection} from "@project-serum/common";
 require('@solana/wallet-adapter-react-ui/styles.css');
 const metaplex = require('@metaplex/js');
 const spl_token = require('@solana/spl-token');
@@ -43,6 +44,7 @@ const opts = {preflightCommitment: 'processed'};
 // declare globals
 let cmProgram = null;
 let ccProgram = null;
+let wallet = null;
 let nativeMint = null;
 let provider = null;
 let user_pda = null;
@@ -59,7 +61,7 @@ function App() {
    async function initialize() {
       // get idl and pdas and stuff
       const connection = new Connection(network, opts.preflightCommitment);
-      const wallet = wallets[0].adapter();
+      wallet = wallets[0].adapter();
       await wallet.connect();
       console.log("getting provider with local wallet PK: %s", wallet.publicKey.toString());
       provider = new Provider(
@@ -75,6 +77,7 @@ function App() {
       ccProgram = new anchor.Program(ccIdl, CLIMAX_CONTROLLER_PROGRAM_ID, provider);
 
       nativeMint = new Token(provider.connection, NATIVE_MINT, TOKEN_PROGRAM_ID, provider.wallet);
+      console.log("loaded native mint: ", nativeMint);
       [pool_wrapped_sol] = await PublicKey.findProgramAddress(
           [CLIMAX_CONTROLLER_ID.toBuffer(), Buffer.from(TOKEN_ACCOUNT_PDA_SEED)],
           ccProgram.programId
@@ -201,7 +204,44 @@ function App() {
    async function executeUserWithdraw() {
       setIsLoading(true);
 
-      let user_wrapped_sol_ata = await nativeMint.getOrCreateAssociatedAccountInfo(provider.wallet.publicKey);
+      console.log("attemping user withdraw");
+
+      // load ata
+      let ata = await Token.getAssociatedTokenAddress(ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID, NATIVE_MINT, provider.wallet.publicKey);
+      let acctInfo = null;
+      console.log("got ata: ", ata.toString());
+
+      // check if ata already created
+      try{
+         acctInfo = await nativeMint.getAccountInfo(ata);
+         console.log("got acctInfo: ", acctInfo);
+         console.log("skipping ata creation...");
+      }
+      catch (e) {
+
+         // console.log("got error: ", e);
+         console.log("ata not found, creating new one...");
+         // create ata
+         console.log("creating create account ix");
+         let ix = Token.createAssociatedTokenAccountInstruction(ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID, NATIVE_MINT, ata, provider.wallet.publicKey, provider.wallet.publicKey);
+         const transaction = new Transaction().add(ix);
+         console.log("getting recent blockhash");
+         let blockhashInfo = await provider.connection.getRecentBlockhash('finalized');
+         console.log("got recent blockhash: ", blockhashInfo.blockhash.toString());
+         transaction.recentBlockhash = blockhashInfo.blockhash;
+         transaction.feePayer = provider.wallet.publicKey;
+         console.log("attampting to sign tx");
+         let signed_tx = await provider.wallet.signTransaction(transaction);
+         console.log("signed ts success: ", signed_tx)
+         // TODO seriealize and send raw
+         let rawTransaction = signed_tx.serialize();
+         let tx_sig = await web3.sendAndConfirmRawTransaction(provider.connection, rawTransaction);
+         console.log("got tx sig: ", tx_sig);
+
+         acctInfo = await nativeMint.getAccountInfo(ata);
+         console.log("got acctInfo: " + acctInfo);
+      }
+
       let result = await ccProgram.rpc.executeUserWithdraw(
           {
              accounts: {
@@ -211,7 +251,7 @@ function App() {
                 poolWrappedSol: pool_wrapped_sol,
                 userMetadataPda: user_pda,
                 wsolMint: WRAPPED_SOL_MINT,
-                proposedReceiver: user_wrapped_sol_ata.address,
+                proposedReceiver: ata,
                 candyMachine: CANDY_MACHINE_ID,
                 systemProgram: SystemProgram.programId,
                 tokenProgram: TOKEN_PROGRAM_ID,
