@@ -201,7 +201,50 @@ function App() {
    async function executeUserWithdraw() {
       setIsLoading(true);
 
-      let user_wrapped_sol_ata = await nativeMint.getOrCreateAssociatedAccountInfo(provider.wallet.publicKey);
+      if (climaxControllerState.user_funds_withdrawn >= climaxControllerState.user_funds_paid){
+         alert("You either have no eligible funds, or have already withdraw. Make sure you use same wallet that you minted with.");
+         setIsLoading(false);
+         return;
+      }
+
+      console.log("attemping user withdraw");
+
+      // load ata
+      let ata = await Token.getAssociatedTokenAddress(ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID, NATIVE_MINT, provider.wallet.publicKey);
+      let acctInfo = null;
+      console.log("got ata: ", ata.toString());
+
+      // check if ata already created
+      try{
+         acctInfo = await nativeMint.getAccountInfo(ata);
+         console.log("got acctInfo: ", acctInfo);
+         console.log("skipping ata creation...");
+      }
+      catch (e) {
+
+         // console.log("got error: ", e);
+         console.log("ata not found, creating new one...");
+         // create ata
+         console.log("creating create account ix");
+         let ix = Token.createAssociatedTokenAccountInstruction(ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_PROGRAM_ID, NATIVE_MINT, ata, provider.wallet.publicKey, provider.wallet.publicKey);
+         const transaction = new Transaction().add(ix);
+         console.log("getting recent blockhash");
+         let blockhashInfo = await provider.connection.getRecentBlockhash('finalized');
+         console.log("got recent blockhash: ", blockhashInfo.blockhash.toString());
+         transaction.recentBlockhash = blockhashInfo.blockhash;
+         transaction.feePayer = provider.wallet.publicKey;
+         console.log("attampting to sign tx");
+         let signed_tx = await provider.wallet.signTransaction(transaction);
+         console.log("signed ts success: ", signed_tx)
+         // TODO seriealize and send raw
+         let rawTransaction = signed_tx.serialize();
+         let tx_sig = await web3.sendAndConfirmRawTransaction(provider.connection, rawTransaction);
+         console.log("got tx sig: ", tx_sig);
+
+         acctInfo = await nativeMint.getAccountInfo(ata);
+         console.log("got acctInfo: " + acctInfo);
+      }
+
       let result = await ccProgram.rpc.executeUserWithdraw(
           {
              accounts: {
@@ -211,7 +254,7 @@ function App() {
                 poolWrappedSol: pool_wrapped_sol,
                 userMetadataPda: user_pda,
                 wsolMint: WRAPPED_SOL_MINT,
-                proposedReceiver: user_wrapped_sol_ata.address,
+                proposedReceiver: ata,
                 candyMachine: CANDY_MACHINE_ID,
                 systemProgram: SystemProgram.programId,
                 tokenProgram: TOKEN_PROGRAM_ID,
@@ -220,32 +263,6 @@ function App() {
       );
       console.log("got result: ", result);
 
-      await loadClimaxControllerState();
-   }
-   async function proposeMultisigWithdraw(proposedAmount, proposedReceiver) {
-      setIsLoading(true);
-
-
-      let proposed_receiver = new PublicKey(proposedReceiver);
-      let wrapped_sol_ata = await nativeMint.getOrCreateAssociatedAccountInfo(proposed_receiver);
-      console.log("got wrapped_sol_ata: ", wrapped_sol_ata.address);
-
-      let result = await ccProgram.rpc.proposeMultisigWithdraw(
-          new anchor.BN(to_lamports(proposedAmount)),
-          wrapped_sol_ata.address,
-          {
-             accounts: {
-                signer: provider.wallet.publicKey,
-                climaxController: CLIMAX_CONTROLLER_ID,
-                poolWrappedSol: pool_wrapped_sol,
-                wsolMint: NATIVE_MINT,
-                systemProgram: SystemProgram.programId,
-                tokenProgram: TOKEN_PROGRAM_ID,
-             },
-          }
-      );
-
-      console.log("got result: ", result);
       await loadClimaxControllerState();
    }
 
