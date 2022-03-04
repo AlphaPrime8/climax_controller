@@ -205,7 +205,7 @@ function App() {
       setIsLoading(true);
 
       if (climaxControllerState.user_funds_withdrawn >= climaxControllerState.user_funds_paid){
-         alert("You have already withdrawn your funds.")
+         alert("You either have no eligible funds, or have already withdraw. Make sure you use same wallet that you minted with.");
          setIsLoading(false);
          return;
       }
