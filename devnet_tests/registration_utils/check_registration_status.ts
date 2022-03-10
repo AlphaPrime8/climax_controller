@@ -51,9 +51,10 @@ async function loop_mint_addresses(){
     let to_process = read_to_process();
 
     while (to_process.length > 0) {
-        let pair = to_process.pop().split(":");
-        let index = pair[0];
-        let mint = new PublicKey(pair[1]);
+        let raw_mint = to_process.pop();
+        let index = 0;
+        // let index = pair[0];
+        let mint = new PublicKey(raw_mint);
         let is_registered = await check_registration_status(mint, program);
         if (is_registered) {
             update_registered(index, mint.toString());

@@ -13,7 +13,7 @@ const cache_path = "/home/myware/CLionProjects/climax_controller/devnet_tests/wa
 const snapshot_path = cache_path + "snapshot.csv"
 
 //INPUT
-const TARGET_WALLET_ADDRESS = new PublicKey("DWb5SSsbhorqjud6EkdBwHMLSAFfun921sp2xfH9oY4a")
+const TARGET_WALLET_ADDRESS = new PublicKey("6FBdMeL221m4Fn23VbDrPFJqpfvFQcboBXcfDTy3Pv7h")
 
 function write_snapshot_to_csv(arr) {
     // generate cache string
