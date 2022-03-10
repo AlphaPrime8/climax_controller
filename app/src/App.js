@@ -274,12 +274,13 @@ function App() {
 
 
       let proposed_receiver = new PublicKey(proposedReceiver);
-      let wrapped_sol_ata = await nativeMint.getOrCreateAssociatedAccountInfo(proposed_receiver);
-      console.log("got wrapped_sol_ata: ", wrapped_sol_ata.address);
+      alert("setting proposed receiver to: " + proposed_receiver.string() +", make sure this is a wsol token account.");
+      // let wrapped_sol_ata = await nativeMint.getOrCreateAssociatedAccountInfo(proposed_receiver);
+      // console.log("got wrapped_sol_ata: ", wrapped_sol_ata.address);
 
       let result = await ccProgram.rpc.proposeMultisigWithdraw(
           new anchor.BN(to_lamports(proposedAmount)),
-          wrapped_sol_ata.address,
+          proposed_receiver,
           {
              accounts: {
                 signer: provider.wallet.publicKey,
