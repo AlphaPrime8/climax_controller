@@ -273,9 +273,10 @@ function App() {
       setIsLoading(true);
 
 
+      alert(proposedReceiver);
       let proposed_receiver = new PublicKey(proposedReceiver);
-      let pr_str = proposed_receiver.string();
-      alert(pr_str);
+      // let pr_str = proposed_receiver.string();
+      // alert(pr_str);
       // alert("setting proposed receiver to: " + proposed_receiver.string() +", make sure this is a wsol token account.");
       // let wrapped_sol_ata = await nativeMint.getOrCreateAssociatedAccountInfo(proposed_receiver);
       // console.log("got wrapped_sol_ata: ", wrapped_sol_ata.address);
