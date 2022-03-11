@@ -271,7 +271,9 @@ function App() {
 
 
       let proposed_receiver = new PublicKey(proposedReceiver);
-      alert("setting proposed receiver to: " + proposed_receiver.string() + ", make sure this is a wrapped sol token account.");
+      let pr_str = proposed_receiver.toString();
+
+      alert(pr_str);
       // TODO maybe remove this and just put in raw token account if theres trouble
       // let wrapped_sol_ata = await nativeMint.getOrCreateAssociatedAccountInfo(proposed_receiver);
       // console.log("got wrapped_sol_ata: ", wrapped_sol_ata.address);
