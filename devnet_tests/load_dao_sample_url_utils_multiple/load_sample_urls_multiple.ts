@@ -25,9 +25,8 @@ function read_to_process () {
     return raw_str.split(",");
 }
 
-function update_registered(dao_id, image_url){
-    let append_str = dao_id + " " + image_url + "\n";
-    fs.appendFileSync(processed_registered_fpath, append_str);
+function update_registered(line_str){
+    fs.appendFileSync(processed_registered_fpath, line_str);
 }
 
 async function loop_get_images(){
@@ -37,28 +36,15 @@ async function loop_get_images(){
 
     while (to_process.length > 0) {
         console.log("to process len: ", to_process.length);
-        let pair = to_process.pop().split(":");
-        let dao_id = pair[0];
-        let mint1 = pair[1];
-        let mint2 = pair[2];
-        let mint3 = pair[3];
-        let mint4 = pair[4];
+        let mint = to_process.pop();
 
-        let image_url1 = await get_image_url(mint1);
-        await new Promise(r => setTimeout(r, 1000));
-        let image_url2 = await get_image_url(mint2);
-        await new Promise(r => setTimeout(r, 1000));
-        let image_url3 = await get_image_url(mint3);
-        await new Promise(r => setTimeout(r, 1000));
-        let image_url4 = await get_image_url(mint4);
+        let image_url_name_line = await get_image_url(mint);
         await new Promise(r => setTimeout(r, 1000));
 
-        // make total string
-        const cache_str = image_url1 + "|" + image_url2 + "|" + image_url3 + "|" + image_url4;
-
-        if (image_url4) {
-            update_registered(dao_id, cache_str);
-            console.log("UPDATED image url: " + cache_str + " for dao: " + dao_id);
+        if (image_url_name_line) {
+            update_registered(image_url_name_line);
+        } else {
+            throw Error("Failed to get  metadata, this should not occur.");
         }
         // update to_process
         write_to_process(to_process);
@@ -68,15 +54,18 @@ async function loop_get_images(){
 async function get_image_url(mint_address: string){
     // let mintPubkey = new PublicKey("9B7LaYFysJW9hxpNF87TipWFu92vUXsXqkprD5qnwmC3");
     try {
+        console.log(`loading nft: ${mint_address}`);
         let mintPubkey = new PublicKey(mint_address);
+        console.log("getting pda");
         const pda = await metaplex.programs.metadata.Metadata.getPDA(mintPubkey.toString());
         const metadata = await metaplex.programs.metadata.Metadata.load(connection, pda);
         let uri = metadata.data.data.uri;
         let nft_name = metadata.data.data.name;
+        console.log(`getting arweave data for uri: ${uri}`);
         let arweaveData = await (await fetch(uri)).json();
         const image_url = arweaveData.image;
         // const nft_name = arweaveData
-        const rstr =  image_url + ":" + nft_name;
+        const rstr = mint_address + " " +  image_url + " " + nft_name + "\n";
         console.log("got rstr: ", rstr);
         return rstr
     }
